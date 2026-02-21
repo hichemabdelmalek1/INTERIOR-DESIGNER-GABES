@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ingénieur — Prototype HTML</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="engineer">
+  <div class="topbar">
+    <div class="row">
+      <div class="brand">
+        <div class="logo">IF</div>
+        <div class="title">
+          <div class="k">Prototype</div>
+          <div class="t">Ingénieur</div>
+        </div>
+      </div>
+      <div class="nav">
+        <a class="btn" href="index.html">Accueil</a>
+        <a class="btn" href="admin.html">Admin</a>
+        <a class="btn" href="client.html">Client</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container grid" style="gap:18px">
+    <div class="card">
+      <div class="hd">
+        <h2>Identité (prototype)</h2>
+        <p>Email: <b id="meEmail"></b> — Statut: <b id="meStatus"></b></p>
+      </div>
+      <div class="bd small muted">
+        في النسخة الحقيقية: Google Login + Approval من Admin.
+      </div>
+    </div>
+
+    <div class="grid two" style="gap:18px">
+      <div class="card">
+        <div class="hd">
+          <h2>Créer une facture</h2>
+          <p>ادخل المساحات — الحساب تلقائي (سعر موحّد).</p>
+        </div>
+        <div class="bd">
+          <form id="invoiceForm" class="grid" style="gap:16px">
+            <div class="grid two">
+              <div class="field">
+                <label>Projet</label>
+                <select id="projectSelect" name="projectId"></select>
+              </div>
+              <div class="field">
+                <label>TVA</label>
+                <select name="tvaRate">
+                  <option value="0">0%</option>
+                  <option value="0.19" selected>19%</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Plan de paiement</label>
+                <select name="paymentPlan">
+                  <option value="FOUR_INSTALLMENTS" selected>4 échéances (25% chacune)</option>
+                  <option value="FULL_PAYMENT">Paiement total</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Mode de paiement</label>
+                <select name="paymentMethod">
+                  <option value="BOTH" selected>Virement bancaire ou espèces</option>
+                  <option value="BANK_TRANSFER">Virement bancaire</option>
+                  <option value="CASH">Espèces</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="card"><div class="bd">
+              <div style="font-weight:800;margin-bottom:8px">Plan aménagé 2D</div>
+              <div class="row">
+                <label class="small"><input type="checkbox" name="plan2dEnabled" checked> Activer</label>
+                <select name="plan2dType" class="btn">
+                  <option value="NEUF">Neuf (7 DT/m²)</option>
+                  <option value="RENO">Rénovation (5 DT/m²)</option>
+                </select>
+              </div>
+              <div class="field" style="margin-top:10px">
+                <label>Surface (m²)</label>
+                <input type="number" name="plan2dSurface" value="0" min="0" step="0.01">
+              </div>
+            </div></div>
+
+            <div class="grid two">
+              <div class="card"><div class="bd">
+                <div style="font-weight:800;margin-bottom:8px">3D intérieur</div>
+                <label class="small"><input type="checkbox" name="interior3dEnabled" checked> Activer</label>
+                <div class="field" style="margin-top:10px">
+                  <label>Surface (m²)</label>
+                  <input type="number" name="interior3dSurface" value="0" min="0" step="0.01">
+                </div>
+              </div></div>
+
+              <div class="card"><div class="bd">
+                <div style="font-weight:800;margin-bottom:8px">Dossier technique</div>
+                <label class="small"><input type="checkbox" name="dossierEnabled" checked> Activer</label>
+                <div class="field" style="margin-top:10px">
+                  <label>Surface (m²)</label>
+                  <input type="number" name="dossierSurface" value="0" min="0" step="0.01">
+                </div>
+              </div></div>
+
+              <div class="card"><div class="bd">
+                <div style="font-weight:800;margin-bottom:8px">Extérieur couvert</div>
+                <label class="small"><input type="checkbox" name="extEnabled"> Activer</label>
+                <div class="field" style="margin-top:10px">
+                  <label>Surface (m²)</label>
+                  <input type="number" name="extSurface" value="0" min="0" step="0.01">
+                </div>
+              </div></div>
+
+              <div class="card"><div class="bd">
+                <div style="font-weight:800;margin-bottom:8px">Supervision / visites</div>
+                <div class="field">
+                  <label>Mode</label>
+                  <select name="supervisionMode">
+                    <option value="NONE" selected>Aucune</option>
+                    <option value="FORFAIT">Forfait (400 DT/mois, 6 visites)</option>
+                    <option value="VISITS">Visites séparées (100 DT/visite)</option>
+                    <option value="FORFAIT_PLUS_EXTRA">Forfait + extra</option>
+                  </select>
+                </div>
+                <div class="grid three" style="margin-top:10px">
+                  <div class="field"><label>Mois</label><input type="number" name="months" value="0" min="0"></div>
+                  <div class="field"><label>Visites</label><input type="number" name="visits" value="0" min="0"></div>
+                  <div class="field"><label>Extra</label><input type="number" name="extraVisits" value="0" min="0"></div>
+                </div>
+                <label class="small" style="display:block;margin-top:8px">
+                  <input type="checkbox" name="ownerApproved"> Approbation du propriétaire (si extra)
+                </label>
+              </div></div>
+            </div>
+
+            <button class="btn accent" type="submit">Créer facture (Prototype)</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Preview</h2>
+          <p>Résumé + QR pour ouvrir côté client.</p>
+        </div>
+        <div class="bd">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div class="muted small">Numéro</div>
+              <div style="font-weight:900;font-size:20px" id="prevNum">—</div>
+            </div>
+            <div class="right">
+              <a class="btn" id="prevLink" href="client.html">Ouvrir côté client</a>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="grid two">
+            <div><div class="muted small">Client</div><div style="font-weight:800" id="prevClient">—</div></div>
+            <div><div class="muted small">Projet</div><div style="font-weight:800" id="prevProject">—</div></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <table>
+            <thead><tr><th>Désignation</th><th class="right">Qté</th><th>Unité</th><th class="right">PU</th><th class="right">Total</th></tr></thead>
+            <tbody id="prevLines"></tbody>
+          </table>
+
+          <div class="hr"></div>
+
+          <div class="grid three">
+            <div class="card"><div class="bd"><div class="muted small">Sous-total</div><div style="font-weight:900;font-size:18px" id="prevSubtotal">—</div></div></div>
+            <div class="card"><div class="bd"><div class="muted small">TVA</div><div style="font-weight:900;font-size:18px" id="prevTax">—</div></div></div>
+            <div class="card"><div class="bd"><div class="muted small">Total</div><div style="font-weight:900;font-size:18px" id="prevTotal">—</div></div></div>
+          </div>
+
+          <div class="hr"></div>
+          <div class="card"><div class="bd">
+            <div style="font-weight:900">Modalités de paiement</div>
+            <div class="small muted" style="margin-top:6px" id="prevPay">—</div>
+          </div></div>
+
+          <div class="hr"></div>
+          <div class="row">
+            <div id="qr" class="card" style="padding:10px;border-radius:18px"></div>
+            <div class="small muted">
+              QR هنا يخدم عبر مكتبة من CDN (يحتاج إنترنت).
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
+
+  <!-- QR code library (online) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

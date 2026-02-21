@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Client — Prototype HTML</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="client">
+  <div class="topbar">
+    <div class="row">
+      <div class="brand">
+        <div class="logo">IF</div>
+        <div class="title">
+          <div class="k">Prototype</div>
+          <div class="t">Client</div>
+        </div>
+      </div>
+      <div class="nav">
+        <a class="btn" href="index.html">Accueil</a>
+        <a class="btn" href="admin.html">Admin</a>
+        <a class="btn" href="engineer.html">Ingénieur</a>
+        <button class="btn ghost" id="clearHash">Fermer facture</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container grid" style="gap:18px">
+    <div class="card">
+      <div class="hd">
+        <h2>Mes factures (prototype)</h2>
+        <p>في النسخة الحقيقية: الحريف يشوف غير فواتيره عبر Google Login + ربط email.</p>
+      </div>
+      <div class="bd">
+        <div id="myInvoices" class="list"></div>
+      </div>
+    </div>
+
+    <div id="viewer"></div>
+  </div>
+
+  <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
+  <script src="app.js"></script>
+</body>
+</html>
