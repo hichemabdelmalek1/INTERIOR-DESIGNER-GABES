@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function myUid() { return request.auth.uid; }
+
+    function userDoc(uid) { return get(/databases/$(database)/documents/users/$(uid)); }
+    function myRole() { return isSignedIn() ? userDoc(myUid()).data.role : null; }
+    function isAdmin() { return myRole() == 'ADMIN'; }
+    function isArchitect() { return myRole() == 'ARCHITECT'; }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if isSignedIn() && myUid() == uid;
+      allow update: if (isSignedIn() && myUid() == uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /architectRequests/{reqId} {
+      allow create: if isSignedIn() && myRole() == 'CLIENT';
+      allow read: if isSignedIn() && (isAdmin() || resource.data.uid == myUid());
+      allow update, delete: if isAdmin();
+    }
+
+    match /pricing/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow create: if isSignedIn() && isArchitect();
+      allow read: if isSignedIn() && (isAdmin() || isArchitect() || resource.data.ownerUid == myUid());
+      allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
+    }
+
+    match /projects/{projectId} {
+      allow create: if isSignedIn() && isArchitect();
+      allow read: if true;
+      allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
+    }
+
+    match /invoices/{invoiceId} {
+      allow create: if isSignedIn() && isArchitect();
+      allow read: if true;
+      allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
+    }
+
+    match /invoiceLines/{lineId} {
+      allow create: if isSignedIn() && isArchitect();
+      allow read: if true;
+      allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
+    }
+
+    match /portfolio/{itemId} {
+      allow create: if isSignedIn() && isArchitect();
+      allow read: if true;
+      allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
+    }
+
+    match /profileLikes/{id} {
+      allow read: if true;
+      allow create, delete: if isSignedIn() && request.resource.data.userUid == myUid();
+      allow update: if false;
+    }
+
+    match /profileRatings/{id} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.resource.data.userUid == myUid();
+      allow delete: if isAdmin();
+    }
+
+    match /profileComments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userUid == myUid());
+    }
+  }
+}

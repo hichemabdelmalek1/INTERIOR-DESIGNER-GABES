@@ -1,1336 +1,829 @@
-/**
- * Static HTML prototype (no server).
- * Data stored in localStorage.
- * NOTE: This does NOT include Google Login, DB, PDF generation, or secure tokens.
- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection, query, where,
+  getDocs, orderBy, limit, writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
-const LS_KEY = "invoice_platform_static_v1";
+const app = initializeApp(window.FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
-function loadState(){
-  try{ return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }catch{ return {}; }
-}
-function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
-
-function initState(){
-  const s = loadState();
-  if(!s.clients) s.clients = [];
-  if(!s.engineers) s.engineers = [{email:"engineer@example.com", name:"Architecte d\u2019intérieur Démo", status:"APPROVED"}];
-  if(!s.projects) s.projects = [];
-  if(!s.invoices) s.invoices = [];
-  if(!s.prices){
-    s.prices = {
-      PLAN2D_NEUF: {label:"Plan aménagé 2D (Neuf)", unit:"m²", price:7},
-      PLAN2D_RENO: {label:"Plan aménagé 2D (Rénovation)", unit:"m²", price:5},
-      INT3D: {label:"3D intérieur", unit:"m²", price:20},
-      EXT: {label:"Extérieur couvert", unit:"m²", price:10},
-      DOSSIER: {label:"Dossier technique (lot spéciaux + métrée)", unit:"m²", price:5},
-      VISIT: {label:"Visite de chantier", unit:"visite", price:100},
-      FORFAIT: {label:"Forfait supervision mensuel (6 visites)", unit:"mois", price:400},
-    };
-  }
-  if(!s.counter){ s.counter = 1; s.year = new Date().getFullYear(); }
-  saveState(s);
-  return s;
-}
-
-function money(n){
-  return new Intl.NumberFormat("fr-FR",{minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
-}
-
-function invoiceNumber(state){
-  const year = new Date().getFullYear();
-  if(state.year !== year){ state.year = year; state.counter = 1; }
-  const num = `INV-${year}-${String(state.counter).padStart(4,"0")}`;
-  state.counter += 1;
-  return num;
-}
-
-function qs(sel){ return document.querySelector(sel); }
-function qsa(sel){ return [...document.querySelectorAll(sel)]; }
+const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
 
 function toast(msg){
-  const el = qs("#toast");
-  if(!el) return alert(msg);
-  el.textContent = msg;
-  el.style.opacity = "1";
-  setTimeout(()=> el.style.opacity="0", 2200);
+  const t=$("#toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  setTimeout(()=>t.classList.add("hidden"), 2600);
 }
 
-function route(){
-  const page = document.body.dataset.page;
-  const state = initState();
-  if(page === "admin") adminPage(state);
-  if(page === "engineer") engineerPage(state);
-  if(page === "client") clientPage(state);
-  if(page === "home") homePage();
+function showRoute(name){
+  $$("section[id^='route-']").forEach(s=>s.classList.add("hidden"));
+  const el = $("#route-"+name);
+  if(el) el.classList.remove("hidden");
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
-function homePage(){
-  qs("#goAdmin")?.addEventListener("click", ()=> location.href="admin.html");
-  qs("#goEngineer")?.addEventListener("click", ()=> location.href="engineer.html");
-  qs("#goClient")?.addEventListener("click", ()=> location.href="client.html");
-}
-
-/* ---------------- ADMIN ---------------- */
-function adminPage(state){
-  renderClients(state);
-  renderProjects(state);
-  renderInvoices(state);
-
-  qs("#clientForm")?.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    const f = e.target;
-    const c = {
-      id: crypto.randomUUID(),
-      name: f.name.value.trim(),
-      email: f.email.value.trim().toLowerCase() || "",
-      phone: f.phone.value.trim(),
-      taxId: f.taxId.value.trim(),
-      address: f.address.value.trim(),
-      createdAt: Date.now()
-    };
-    if(!c.name) return toast("Nom client obligatoire");
-    state.clients.unshift(c);
-    saveState(state);
-    f.reset();
-    renderClients(state);
-    toast("Client ajouté");
-  });
-
-  qs("#projectForm")?.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    const f = e.target;
-    const p = {
-      id: crypto.randomUUID(),
-      title: f.title.value.trim(),
-      location: f.location.value.trim(),
-      clientId: f.clientId.value,
-      engineerEmail: f.engineerEmail.value,
-      projectType: f.projectType?.value || "RESIDENTIEL",
-      createdAt: Date.now()
-    };
-    if(!p.title) return toast("Titre projet obligatoire");
-    if(!p.clientId) return toast("Choisir client");
-    if(!p.engineerEmail) return toast("Choisir ingénieur");
-    state.projects.unshift(p);
-    saveState(state);
-    f.reset();
-    renderProjects(state);
-    toast("Projet créé");
-  });
-
-  qs("#resetAll")?.addEventListener("click", ()=>{
-    if(confirm("Réinitialiser toutes les données (clients, projets, factures) ?")){
-      localStorage.removeItem(LS_KEY);
-      initState();
-      location.reload();
-    }
-  });
-}
-
-function renderClients(state){
-  const list = qs("#clientsList");
-  const sel = qs("#clientSelect");
-  if(list){
-    list.innerHTML = state.clients.length ? "" : `<div class="muted small">Aucun client.</div>`;
-    state.clients.forEach(c=>{
-      const div = document.createElement("div");
-      div.className="item";
-      div.innerHTML = `
-        <div>
-          <div style="font-weight:700">${escapeHtml(c.name)}</div>
-          <div class="small muted">Email: <b>${escapeHtml(c.email || "—")}</b> — Tél: ${escapeHtml(c.phone||"—")} — MF: ${escapeHtml(c.taxId||"—")}</div>
-          ${c.address ? `<div class="small muted" style="margin-top:4px">${escapeHtml(c.address)}</div>`:""}
-        </div>
-        <button class="btn ghost" data-del-client="${c.id}">Supprimer</button>
-      `;
-      list.appendChild(div);
-    });
-    qsa("[data-del-client]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const id = btn.getAttribute("data-del-client");
-        state.clients = state.clients.filter(c=>c.id!==id);
-        // remove related projects/invoices
-        const projIds = state.projects.filter(p=>p.clientId===id).map(p=>p.id);
-        state.projects = state.projects.filter(p=>p.clientId!==id);
-        state.invoices = state.invoices.filter(inv=>!projIds.includes(inv.projectId));
-        saveState(state);
-        renderClients(state); renderProjects(state); renderInvoices(state);
-      });
+function parseHash(){
+  const h = location.hash.replace("#","").trim();
+  if(!h) return {route:"home", params:{}};
+  const [path, qs] = h.split("?");
+  const params = {};
+  if(qs){
+    qs.split("&").forEach(p=>{
+      const [k,v]=p.split("=");
+      params[decodeURIComponent(k)] = decodeURIComponent(v||"");
     });
   }
-  if(sel){
-    sel.innerHTML = `<option value="">— Choisir —</option>` + state.clients.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  return {route: path.replace("/","") || "home", params};
+}
+
+async function ensureUserDoc(user){
+  const uref = doc(db,"users",user.uid);
+  const snap = await getDoc(uref);
+  if(snap.exists()) return snap.data();
+
+  const isAdmin = (user.email||"").toLowerCase() === (window.ADMIN_EMAIL||"").toLowerCase();
+  const role = isAdmin ? "ADMIN" : "CLIENT";
+  const data = {
+    uid:user.uid,
+    email:user.email||"",
+    fullName:user.displayName||"",
+    company:"",
+    phone:"",
+    city:"",
+    officeAddress:"",
+    instagram:"",
+    facebook:"",
+    linkedin:"",
+    website:"",
+    logoUrl:"",
+    role,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(uref, data);
+  return data;
+}
+
+async function getMe(){
+  const user = auth.currentUser;
+  if(!user) return null;
+  const data = await ensureUserDoc(user);
+  return {...data, uid:user.uid};
+}
+
+function setSessionInfo(role, email){
+  $("#sessionInfo").textContent = role ? `Rôle: ${role} • ${email||""}` : "Non connecté";
+  $("#btnAdmin").classList.toggle("hidden", role!=="ADMIN");
+  $("#btnArchitect").classList.toggle("hidden", role!=="ARCHITECT");
+  $("#btnClient").classList.toggle("hidden", role!=="CLIENT");
+}
+
+async function loadPricing(){
+  const pref = doc(db,"pricing","default");
+  const snap = await getDoc(pref);
+  if(snap.exists()) return snap.data();
+  const seed = {
+    tva_default:0.19,
+    plan2d_new:7, plan2d_renov:5,
+    int3d_res:20, int3d_com:30,
+    ext_res:10, ext_facade_com:100,
+    dossier_res:5, dossier_com:10,
+    visit_single:100, visit_monthly:400,
+    visit_monthly_included:6,
+    deposit_rate:0.25,
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(pref, seed);
+  return seed;
+}
+
+function computeLines({pricing, projectType, surfaceM2, facadeMl, isNewBuild, wantPlan2D, want3DInt, wantExt, wantDossier, visitsMode, visitsCount}){
+  const s = Math.max(0, Number(surfaceM2||0));
+  const f = Math.max(0, Number(facadeMl||0));
+  const isCommercial = projectType === "COMMERCIAL";
+  const lines = [];
+
+  if(wantPlan2D){
+    const pu = isNewBuild ? pricing.plan2d_new : pricing.plan2d_renov;
+    lines.push({code:"PLAN_2D", label:"Plan aménagé 2D", qty:s, unit:"m²", unitPrice:pu, total:s*pu});
   }
-  const engSel = qs("#engineerSelect");
-  if(engSel){
-    engSel.innerHTML = state.engineers.filter(e=>e.status==="APPROVED")
-      .map(e=>`<option value="${e.email}">${escapeHtml(e.name)} — ${escapeHtml(e.email)}</option>`).join("");
+  if(want3DInt){
+    const pu = isCommercial ? pricing.int3d_com : pricing.int3d_res;
+    lines.push({code:"3D_INT", label:"3D intérieur", qty:s, unit:"m²", unitPrice:pu, total:s*pu});
   }
-}
-
-function renderProjects(state){
-  const list = qs("#projectsList");
-  const sel = qs("#projectSelect");
-  if(list){
-    list.innerHTML = state.projects.length ? "" : `<div class="muted small">Aucun projet.</div>`;
-    state.projects.forEach(p=>{
-      const client = state.clients.find(c=>c.id===p.clientId);
-      const div=document.createElement("div");
-      div.className="item";
-      div.innerHTML=`
-        <div>
-          <div style="font-weight:700">${escapeHtml(p.title)}</div>
-          <div class="small muted">Client: <b>${escapeHtml(client?.name||"—")}</b> — Architecte d'intérieur: <b>${escapeHtml(p.engineerEmail)}</b> — Type: <b>${projectTypeLabel(p.projectType)}</b> — Lieu: ${escapeHtml(p.location||"—")}</div>
-        </div>
-        <button class="btn ghost" data-del-project="${p.id}">Supprimer</button>
-      `;
-      list.appendChild(div);
-    });
-    qsa("[data-del-project]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const id = btn.getAttribute("data-del-project");
-        state.projects = state.projects.filter(p=>p.id!==id);
-        state.invoices = state.invoices.filter(inv=>inv.projectId!==id);
-        saveState(state);
-        renderProjects(state); renderInvoices(state);
-      });
-    });
+  if(wantExt){
+    if(isCommercial){
+      lines.push({code:"EXT_FACADE", label:"Extérieur (façade)", qty:f, unit:"ml", unitPrice:pricing.ext_facade_com, total:f*pricing.ext_facade_com});
+    }else{
+      lines.push({code:"EXT_COUVERT", label:"Extérieur couvert", qty:s, unit:"m²", unitPrice:pricing.ext_res, total:s*pricing.ext_res});
+    }
   }
-  if(sel){
-    sel.innerHTML = `<option value="">— Choisir —</option>` + state.projects.map(p=>`<option value="${p.id}">${escapeHtml(p.title)}</option>`).join("");
+  if(wantDossier){
+    const pu = isCommercial ? pricing.dossier_com : pricing.dossier_res;
+    lines.push({code:"DOSSIER_TECH", label:"Dossier technique (lots spéciaux + métré)", qty:s, unit:"m²", unitPrice:pu, total:s*pu});
   }
-}
-
-function renderInvoices(state){
-  const list = qs("#invoicesList");
-  if(!list) return;
-  list.innerHTML = state.invoices.length ? "" : `<div class="muted small">Aucune facture.</div>`;
-  state.invoices.forEach(inv=>{
-    const p = state.projects.find(x=>x.id===inv.projectId);
-    const c = state.clients.find(x=>x.id===p?.clientId);
-    const div=document.createElement("div");
-    div.className="item";
-    div.innerHTML=`
-      <div>
-        <div style="font-weight:800">${inv.number} <span class="badge">${inv.status}</span></div>
-        <div class="small muted">Client: <b>${escapeHtml(c?.name||"—")}</b> — Projet: ${escapeHtml(p?.title||"—")} — Total: <b>${money(inv.total)} DT</b></div>
-      </div>
-      <div class="row">
-        <a class="btn" href="client.html#${encodeURIComponent(inv.number)}">Ouvrir</a>
-        <select class="btn" data-status="${inv.number}">
-          ${["ISSUED","PAID","CANCELED"].map(s=>`<option ${s===inv.status?"selected":""} value="${s}">${s}</option>`).join("")}
-        </select>
-      </div>
-    `;
-    list.appendChild(div);
-  });
-  qsa("[data-status]").forEach(sel=>{
-    sel.addEventListener("change", ()=>{
-      const num = sel.getAttribute("data-status");
-      const inv = state.invoices.find(i=>i.number===num);
-      if(inv){ inv.status = sel.value; saveState(state); toast("Statut mis à jour"); }
-    });
-  });
-}
-
-/* ---------------- ENGINEER ---------------- */
-function engineerPage(state){
-  // engineer identity (static)
-  const meEmail = "engineer@example.com";
-  const me = state.engineers.find(e=>e.email===meEmail);
-  qs("#meEmail").textContent = meEmail;
-  qs("#meStatus").textContent = me?.status || "APPROVED";
-
-  const myProjects = state.projects.filter(p=>p.engineerEmail===meEmail);
-  const projectSel = qs("#projectSelect");
-  projectSel.innerHTML = myProjects.length
-    ? myProjects.map(p=>`<option value="${p.id}">${escapeHtml(p.title)}</option>`).join("")
-    : `<option value="">(Aucun projet assigné — admin doit créer)</option>`;
-
-  
-function isCommercialProject(projectId){
-  const pr = state.projects.find(p=>p.id===projectId);
-  return pr?.projectType === "COMMERCIAL";
-}
-
-function updateExtUi(){
-  const pid = projectSel.value;
-  const commercial = isCommercialProject(pid);
-  const lbl = qs("#extLabel");
-  const hint = qs("#extHint");
-  if(lbl) lbl.textContent = commercial ? "Longueur façade (m linéaire)" : "Surface couverte (m²)";
-  if(hint) hint.textContent = commercial
-    ? "Commercial: 100 DT par m linéaire de façade."
-    : "Résidentiel/Tertiaire/Public/Scéno: 10 DT/m² couvert.";
-}
-
-projectSel.addEventListener("change", updateExtUi);
-setTimeout(updateExtUi, 0);
-
-qs("#invoiceForm")?.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    if(!myProjects.length) return toast("Aucun projet assigné. Demande à l’admin.");
-
-    const f = e.target;
-    const projectId = f.projectId.value;
-    const override = (qs("#billingProjectType")?.value || "AUTO");
-    const effectiveType = getEffectiveBillingType(state, projectId, override);
-    const commercial = (effectiveType === "COMMERCIAL");
-
-    const tvaRate = parseFloat(f.tvaRate.value);
-    const paymentPlan = f.paymentPlan.value;
-    const paymentMethod = f.paymentMethod.value;
-
-    const lines = [];
-
-    // Plan2D
-    const plan2dOn = f.plan2dEnabled.checked;
-    const plan2dType = f.plan2dType.value;
-    const plan2dSurface = parseFloat(f.plan2dSurface.value||"0");
-    if(plan2dOn && plan2dSurface>0){
-      const code = plan2dType==="NEUF" ? "PLAN2D_NEUF" : "PLAN2D_RENO";
-      const it = state.prices[code];
-      lines.push(mkLine(code, it.label, plan2dSurface, it.unit, it.price));
-    }
-    // 3D
-    const intOn = f.interior3dEnabled.checked;
-    const intSurf = parseFloat(f.interior3dSurface.value||"0");
-    if(intOn && intSurf>0){
-      const it = state.prices.INT3D;
-      const pu = commercial ? 30 : it.price;
-      lines.push(mkLine("INT3D", it.label + (commercial ? " (Commercial)" : ""), intSurf, it.unit, pu));
-    }
-    // Ext
-    const extOn = f.extEnabled.checked;
-    const extSurf = parseFloat(f.extSurface.value||"0");
-    if(extOn && extSurf>0){
-      if(commercial){
-        lines.push(mkLine("EXT_FACADE", "Façade (m linéaire)", extSurf, "m.l", 100));
-      } else {
-        const it = state.prices.EXT;
-        lines.push(mkLine("EXT", it.label, extSurf, it.unit, it.price));
-      }
-    }
-    // Dossier
-    const dosOn = f.dossierEnabled.checked;
-    const dosSurf = parseFloat(f.dossierSurface.value||"0");
-    if(dosOn && dosSurf>0){
-      const it = state.prices.DOSSIER;
-      const pu = commercial ? 10 : it.price;
-      lines.push(mkLine("DOSSIER", it.label + (commercial ? " (Commercial)" : ""), dosSurf, it.unit, pu));
-    }
-
-    // Supervision
-    const mode = f.supervisionMode.value;
-    const months = parseInt(f.months.value||"0",10);
-    const visits = parseInt(f.visits.value||"0",10);
-    const extraVisits = parseInt(f.extraVisits.value||"0",10);
-    const ownerApproved = f.ownerApproved.checked;
-
-    if(mode==="FORFAIT" && months>0){
-      const it = state.prices.FORFAIT;
-      lines.push(mkLine("FORFAIT", it.label, months, it.unit, it.price));
-    }
-    if(mode==="VISITS" && visits>0){
-      const it = state.prices.VISIT;
-      lines.push(mkLine("VISIT", it.label, visits, it.unit, it.price));
-    }
-    if(mode==="FORFAIT_PLUS_EXTRA"){
-      if(!ownerApproved) return toast("Approbation du propriétaire requise pour les visites extra.");
-      if(months>0){
-        const it = state.prices.FORFAIT;
-        lines.push(mkLine("FORFAIT", it.label, months, it.unit, it.price));
-      }
-      if(extraVisits>0){
-        const it = state.prices.VISIT;
-        lines.push(mkLine("VISIT_EXTRA", "Visites supplémentaires (sur demande propriétaire)", extraVisits, "visite", it.price));
-      }
-    }
-
-    const subtotal = lines.reduce((a,b)=>a+b.total,0);
-    const tax = subtotal * tvaRate;
-    const total = subtotal + tax;
-
-    const number = invoiceNumber(state);
-    const inv = {
-      number,
-      projectId,
-      status:"ISSUED",
-      createdAt: Date.now(),
-      tvaRate,
-      paymentPlan,
-      paymentMethod,
-      projectType: effectiveType,
-      depositRate: 0.25,
-      lines,
-      subtotal, tax, total,
-    };
-    state.invoices.unshift(inv);
-    saveState(state);
-
-    // preview + QR
-    renderInvoicePreview(inv, state);
-    toast("Facture créée (prototype)");
-  });
-
-  // initial preview last invoice
-  const last = state.invoices.find(i=>{
-    const p=state.projects.find(x=>x.id===i.projectId);
-    return p?.engineerEmail===meEmail;
-  });
-  if(last) renderInvoicePreview(last, state);
-}
-
-function mkLine(code,label,qty,unit,unitPrice){
-  return {code,label,qty,unit,unitPrice,total:qty*unitPrice};
-}
-
-function renderInvoicePreview(inv, state){
-  const p = state.projects.find(x=>x.id===inv.projectId);
-  const c = state.clients.find(x=>x.id===p?.clientId);
-  qs("#prevNum").textContent = inv.number;
-  qs("#prevClient").textContent = c?.name || "—";
-  qs("#prevProject").textContent = p?.title || "—";
-  const tEl = qs("#prevType");
-  if(tEl) tEl.textContent = projectTypeLabel(inv.projectType || p?.projectType || "RESIDENTIEL");
-  qs("#prevSubtotal").textContent = money(inv.subtotal)+" DT";
-  qs("#prevTax").textContent = money(inv.tax)+" DT";
-  qs("#prevTotal").textContent = money(inv.total)+" DT";
-
-  const tbody = qs("#prevLines");
-  tbody.innerHTML = inv.lines.map(l=>`
-    <tr>
-      <td>${escapeHtml(l.label)}</td>
-      <td class="right">${l.qty}</td>
-      <td>${escapeHtml(l.unit)}</td>
-      <td class="right">${money(l.unitPrice)}</td>
-      <td class="right">${money(l.total)}</td>
-    </tr>
-  `).join("");
-
-  const pay = qs("#prevPay");
-  if(inv.paymentPlan==="FOUR_INSTALLMENTS"){
-    const tranche = inv.total/4;
-    pay.innerHTML = `Paiement en <b>4 échéances</b> (25% chacune). Montant tranche: <b>${money(tranche)} DT</b>.<br/>
-      Mode: <b>${payMethodLabel(inv.paymentMethod)}</b>`;
-  }else{
-    pay.innerHTML = `Paiement total (100%): <b>${money(inv.total)} DT</b><br/>Mode: <b>${payMethodLabel(inv.paymentMethod)}</b>`;
+  if(visitsMode==="SINGLE"){
+    const c = Math.max(1, Number(visitsCount||1));
+    lines.push({code:"VISITE", label:"Visite chantier", qty:c, unit:"visite", unitPrice:pricing.visit_single, total:c*pricing.visit_single});
+  }else if(visitsMode==="MONTHLY"){
+    lines.push({code:"FORFAIT_MENSUEL", label:"Forfait mensuel (6 visites)", qty:1, unit:"mois", unitPrice:pricing.visit_monthly, total:pricing.visit_monthly});
   }
 
-  const url = `${location.origin.replace(/\/[^\/]*$/,'')}/client.html#${encodeURIComponent(inv.number)}`;
-  // QR (online via CDN qrcodejs)
-  const qrBox = qs("#qr");
-  qrBox.innerHTML = "";
-  if(window.QRCode){
-    new QRCode(qrBox, { text: url, width: 140, height: 140 });
-  } else {
-    qrBox.innerHTML = `<div class="small muted">QR library not loaded.</div>`;
-  }
-  qs("#prevLink").href = `client.html#${encodeURIComponent(inv.number)}`;
-  const pdfBtn = qs("#btnPdf");
-  if(pdfBtn){ pdfBtn.onclick = () => downloadInvoicePDF(state, inv.number); }
+  const subtotal = lines.reduce((a,l)=>a+l.total,0);
+  return {lines, subtotal};
 }
 
-/* ---------------- CLIENT ---------------- */
-function clientPage(state){
-  const list = qs("#myInvoices");
-  list.innerHTML = state.invoices.length ? "" : `<div class="muted small">Aucune facture.</div>`;
-  state.invoices.forEach(inv=>{
-    const p = state.projects.find(x=>x.id===inv.projectId);
-    const c = state.clients.find(x=>x.id===p?.clientId);
-    const div=document.createElement("div");
-    div.className="item";
-    div.innerHTML=`
-      <div>
-        <div style="font-weight:800">${inv.number} <span class="badge">${inv.status}</span></div>
-        <div class="small muted">${escapeHtml(c?.name||"—")} — ${escapeHtml(p?.title||"—")} — Total: <b>${money(inv.total)} DT</b></div>
-      </div>
-      <button class="btn" data-open="${inv.number}">Ouvrir</button>
-    `;
-    list.appendChild(div);
+async function nextInvoiceNo(){
+  const year = new Date().getFullYear();
+  const qInv = query(collection(db,"invoices"),
+    where("invoiceNo",">=",`INV-${year}-0000`),
+    where("invoiceNo","<=",`INV-${year}-9999`)
+  );
+  const snap = await getDocs(qInv);
+  let max = 0;
+  snap.forEach(d=>{
+    const no = d.data().invoiceNo || "";
+    const n = Number(no.split("-").pop()||0);
+    if(n>max) max=n;
   });
-  qsa("[data-open]").forEach(b=>{
-    b.addEventListener("click", ()=> openInvoice(state, b.getAttribute("data-open")));
-  });
-
-  // open by hash
-  const num = decodeURIComponent((location.hash||"").slice(1));
-  if(num) openInvoice(state, num);
-
-  qs("#clearHash")?.addEventListener("click", ()=>{
-    history.replaceState(null,"",location.pathname);
-    qs("#viewer").innerHTML = "";
-  });
+  const next = String(max+1).padStart(4,"0");
+  return `INV-${year}-${next}`;
 }
 
-function openInvoice(state, number){
-  const inv = state.invoices.find(i=>i.number===number);
-  if(!inv){ return toast("Facture introuvable"); }
-  const p = state.projects.find(x=>x.id===inv.projectId);
-  const c = state.clients.find(x=>x.id===p?.clientId);
+function publicInvoiceUrl(invoiceId, token){
+  const base = location.origin + location.pathname;
+  return `${base}#/invoice?id=${encodeURIComponent(invoiceId)}&t=${encodeURIComponent(token)}`;
+}
 
-  const viewer = qs("#viewer");
-  viewer.innerHTML = `
-    <div class="card">
-      <div class="hd">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <h2>Facture ${escapeHtml(inv.number)}</h2>
-        <p>${escapeHtml(c?.name||"—")} — ${escapeHtml(p?.title||"—")} — <b>${projectTypeLabel(inv.projectType || p?.projectType)}</b></p>
-          </div>
-          <button class="btn primary" type="button" data-pdf="${escapeHtml(inv.number)}">Télécharger PDF</button>
-        </div>
-      </div>
+async function createPdf({invoice, lines, profile, client, project}){
+  const { jsPDF } = window.jspdf;
+  const docp = new jsPDF();
+
+  docp.setFontSize(18);
+  docp.text("FACTURE", 14, 18);
+  docp.setFontSize(11);
+  docp.text(`Numéro: ${invoice.invoiceNo}`, 14, 28);
+  docp.text(`Date: ${new Date(invoice.createdAtMs).toLocaleDateString("fr-FR")}`, 14, 35);
+
+  docp.text(`Architecte d'intérieur: ${profile.fullName||"—"}`, 14, 48);
+  if(profile.company) docp.text(`Société: ${profile.company}`, 14, 55);
+  if(profile.phone) docp.text(`Tél: ${profile.phone}`, 14, 62);
+  if(profile.email) docp.text(`Email: ${profile.email}`, 14, 69);
+
+  docp.text(`Client: ${client.name||"—"}`, 120, 48);
+  if(client.email) docp.text(`Email: ${client.email}`, 120, 55);
+  if(client.phone) docp.text(`Tél: ${client.phone}`, 120, 62);
+
+  docp.text(`Projet: ${project.title||"—"}`, 14, 82);
+  docp.text(`Type: ${project.projectType||"—"}`, 14, 89);
+
+  docp.autoTable({
+    startY: 98,
+    head: [["Désignation","Qté","Unité","PU (DT)","Total (DT)"]],
+    body: lines.map(l=>[l.label, String(l.qty), l.unit, Number(l.unitPrice).toFixed(2), Number(l.total).toFixed(2)]),
+  });
+
+  const y = docp.lastAutoTable.finalY + 10;
+  docp.text(`Sous-total: ${Number(invoice.subtotal).toFixed(2)} DT`, 120, y);
+  docp.text(`TVA (${Math.round(Number(invoice.tvaRate)*100)}%): ${Number(invoice.tax).toFixed(2)} DT`, 120, y+7);
+  docp.setFontSize(13);
+  docp.text(`TOTAL: ${Number(invoice.total).toFixed(2)} DT`, 120, y+16);
+  docp.setFontSize(11);
+  docp.text(`Acompte (25%): ${Number(invoice.deposit).toFixed(2)} DT`, 120, y+23);
+
+  const url = publicInvoiceUrl(invoice.id, invoice.publicToken);
+  const qrDataUrl = await window.QRCode.toDataURL(url);
+  docp.addImage(qrDataUrl, "PNG", 14, y, 30, 30);
+  docp.text("QR: lien facture", 14, y+40);
+
+  return docp;
+}
+
+/* ----------------- RENDERERS ----------------- */
+
+async function renderDirectory(){
+  const snap = await getDocs(query(collection(db,"users"), where("role","==","ARCHITECT")));
+  const grid = $("#directoryGrid");
+  grid.innerHTML = "";
+  const list=[];
+  snap.forEach(d=>list.push(d.data()));
+  list.forEach(p=>{
+    const el=document.createElement("div");
+    el.className="card";
+    el.innerHTML = `
       <div class="bd">
-        <div class="grid three">
-          <div class="card"><div class="bd"><div class="muted small">Sous-total</div><div style="font-weight:800;font-size:20px">${money(inv.subtotal)} DT</div></div></div>
-          <div class="card"><div class="bd"><div class="muted small">TVA</div><div style="font-weight:800;font-size:20px">${money(inv.tax)} DT</div></div></div>
-          <div class="card"><div class="bd"><div class="muted small">Total</div><div style="font-weight:800;font-size:20px">${money(inv.total)} DT</div></div></div>
-        </div>
-
+        <div style="font-weight:900">${p.fullName||"—"}</div>
+        <div class="muted">${p.company||"—"} • ${p.city||"—"}</div>
         <div class="hr"></div>
+        <button class="btn" data-open-profile="${p.uid}">Voir profil</button>
+      </div>`;
+    grid.appendChild(el);
+  });
+  grid.querySelectorAll("[data-open-profile]").forEach(b=>{
+    b.onclick = ()=> location.hash = `#/profile?id=${encodeURIComponent(b.dataset.openProfile)}`;
+  });
 
-        <table>
-          <thead><tr><th>Désignation</th><th class="right">Qté</th><th>Unité</th><th class="right">PU</th><th class="right">Total</th></tr></thead>
-          <tbody>
-            ${inv.lines.map(l=>`
-              <tr>
-                <td>${escapeHtml(l.label)}</td>
-                <td class="right">${l.qty}</td>
-                <td>${escapeHtml(l.unit)}</td>
-                <td class="right">${money(l.unitPrice)}</td>
-                <td class="right">${money(l.total)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
+  const search = $("#searchDirectory");
+  if(search){
+    search.oninput = ()=>{
+      const q = search.value.trim().toLowerCase();
+      grid.querySelectorAll(".card").forEach(card=>{
+        const txt = card.textContent.toLowerCase();
+        card.style.display = txt.includes(q) ? "" : "none";
+      });
+    };
+  }
+}
 
-        <div class="hr"></div>
+async function renderPortfolio(architectUid){
+  const grid = $("#portfolioGrid");
+  if(!grid) return;
+  const snap = await getDocs(query(collection(db,"portfolio"), where("architectUid","==",architectUid), orderBy("createdAtMs","desc")));
+  grid.innerHTML="";
+  snap.forEach(d=>{
+    const it=d.data();
+    const el=document.createElement("div");
+    el.className="card";
+    const imgs=(it.images||[]).slice(0,4).map(u=>`<img src="${u}" style="width:100%;border-radius:14px;margin-top:6px"/>`).join("");
+    el.innerHTML = `<div class="bd">
+      <div style="font-weight:900">${it.title||"—"}</div>
+      <div class="muted">${it.category||""}</div>
+      <div class="muted">${it.description||""}</div>
+      ${imgs}
+    </div>`;
+    grid.appendChild(el);
+  });
+}
 
-        <div class="card"><div class="bd">
-          <div style="font-weight:800">Modalités de paiement</div>
-          <div class="small muted" style="margin-top:6px">${paymentText(inv)}</div>
-        </div></div>
-      </div>
-    </div>
+async function renderMyProfile(){
+  const me = await getMe();
+  if(!me) return toast("Connectez-vous.");
+  const f=$("#formMyProfile");
+  f.fullName.value=me.fullName||"";
+  f.company.value=me.company||"";
+  f.phone.value=me.phone||"";
+  f.city.value=me.city||"";
+  f.officeAddress.value=me.officeAddress||"";
+  f.instagram.value=me.instagram||"";
+  f.facebook.value=me.facebook||"";
+  f.linkedin.value=me.linkedin||"";
+  f.website.value=me.website||"";
+  await renderPortfolio(me.uid);
+}
+
+async function renderComments(uid){
+  const wrap=$("#commentsList");
+  const snap = await getDocs(query(collection(db,"profileComments"), where("architectUid","==",uid), orderBy("createdAtMs","desc"), limit(30)));
+  wrap.innerHTML="";
+  snap.forEach(d=>{
+    const c=d.data();
+    const el=document.createElement("div");
+    el.className="card";
+    el.innerHTML = `<div class="bd">
+      <div style="font-weight:900">${c.author||"—"}</div>
+      <div class="muted">${new Date(c.createdAtMs).toLocaleString("fr-FR")}</div>
+      <div style="margin-top:8px">${c.text}</div>
+    </div>`;
+    wrap.appendChild(el);
+  });
+  if(!wrap.children.length) wrap.innerHTML=`<div class="muted">Aucun commentaire.</div>`;
+}
+
+async function renderPublicProfile(uid){
+  const usnap = await getDoc(doc(db,"users",uid));
+  if(!usnap.exists()) return toast("Profil introuvable");
+  const p=usnap.data();
+
+  $("#pubName").textContent = p.fullName||"Profil";
+  $("#pubCompany").textContent = p.company||"";
+  $("#pubCity").textContent = p.city||"—";
+
+  $("#pubContact").innerHTML = `
+    <div class="muted">Tél: ${p.phone||"—"}</div>
+    <div class="muted">Email: ${p.email||"—"}</div>
+    <div class="muted">Adresse: ${p.officeAddress||"—"}</div>
   `;
 
-  history.replaceState(null,"",`#${encodeURIComponent(number)}`);
-  const b = qs(`[data-pdf="${inv.number}"]`);
-  if(b){ b.onclick = ()=> downloadInvoicePDF(state, inv.number); }
-}
+  const links=$("#pubLinks");
+  links.innerHTML="";
+  [["Instagram",p.instagram],["Facebook",p.facebook],["LinkedIn",p.linkedin],["Website",p.website]].forEach(([n,u])=>{
+    if(!u) return;
+    const a=document.createElement("a");
+    a.className="btn"; a.href=u; a.target="_blank"; a.textContent=n;
+    links.appendChild(a);
+  });
+  if(!links.children.length) links.innerHTML=`<div class="muted">—</div>`;
 
-function paymentText(inv){
-  if(inv.paymentPlan==="FOUR_INSTALLMENTS"){
-    const tranche = inv.total/4;
-    return `Paiement en 4 échéances: 25% + 25% + 25% + 25% — Tranche: <b>${money(tranche)} DT</b> — Mode: <b>${payMethodLabel(inv.paymentMethod)}</b>`;
-  }
-  return `Paiement total (100%): <b>${money(inv.total)} DT</b> — Mode: <b>${payMethodLabel(inv.paymentMethod)}</b>`;
-}
+  // portfolio public
+  const psnap = await getDocs(query(collection(db,"portfolio"), where("architectUid","==",uid), orderBy("createdAtMs","desc"), limit(12)));
+  const pg=$("#pubPortfolio");
+  pg.innerHTML="";
+  psnap.forEach(d=>{
+    const it=d.data();
+    const el=document.createElement("div");
+    el.className="card";
+    const cover=(it.images||[])[0] ? `<img src="${it.images[0]}" style="width:100%;border-radius:14px"/>` : "";
+    el.innerHTML = `<div class="bd">${cover}<div style="font-weight:900;margin-top:8px">${it.title||"—"}</div><div class="muted">${it.category||""}</div></div>`;
+    pg.appendChild(el);
+  });
 
-function projectTypeLabel(v){
-  const map = {
-    RESIDENTIEL: "Résidentiel",
-    TERTIAIRE: "Tertiaire",
-    COMMERCIAL: "Commercial",
-    PUBLIC_CULTUREL: "Public et Culturel",
-    SCENOGRAPHIE: "Scénographie et Éphémère",
+  // likes count
+  const likesSnap = await getDocs(query(collection(db,"profileLikes"), where("architectUid","==",uid)));
+  $("#likeCount").textContent = String(likesSnap.size);
+
+  // avg rating
+  const rsnap = await getDocs(query(collection(db,"profileRatings"), where("architectUid","==",uid)));
+  let sum=0; rsnap.forEach(d=>sum += Number(d.data().value||0));
+  const avg = rsnap.size ? (sum/rsnap.size) : 0;
+  $("#pubRatingAvg").textContent = rsnap.size ? `${avg.toFixed(1)} / 5` : "—";
+
+  // like button
+  const me = await getMe();
+  const btnLike=$("#btnLike");
+  btnLike.disabled = !me;
+  btnLike.onclick = async ()=>{
+    if(!me) return toast("Connectez-vous.");
+    const likeId = `${uid}_${me.uid}`;
+    const lref = doc(db,"profileLikes",likeId);
+    const ls = await getDoc(lref);
+    if(ls.exists()){
+      // delete via batch import to avoid another import: set a tombstone not ideal; use update with merge? We'll just overwrite with empty? better: show message
+      toast("Déjà liké (suppression تحتاج deleteDoc).");
+    }else{
+      await setDoc(lref,{ architectUid:uid, userUid:me.uid, createdAtMs:Date.now() });
+      toast("Merci ❤️");
+      await renderPublicProfile(uid);
+    }
   };
-  return map[v] || v || "—";
-}
 
-function getTariffsForProjectType(projectType){
-  const commercial = projectType === "COMMERCIAL";
-  return {
-    plan2d_neuf: { label: "Plan aménagé 2D (Neuf)", unit: "m²", price: 7 },
-    plan2d_reno: { label: "Plan aménagé 2D (Rénovation)", unit: "m²", price: 5 },
-    int3d: { label: "3D intérieur", unit: "m²", price: commercial ? 30 : 20 },
-    dossier: { label: "Dossier technique", unit: "m²", price: commercial ? 10 : 5 },
-    ext: commercial
-      ? { label: "Façade", unit: "m linéaire", price: 100 }
-      : { label: "Extérieur couvert", unit: "m²", price: 10 },
-    visit: { label: "Visite de chantier", unit: "visite", price: 100 },
-    forfait: { label: "Forfait supervision mensuel (6 visites)", unit: "mois", price: 400 },
-  };
-}
-
-function renderPricingUI(state, projectId, overrideType){
-  const type = getEffectiveBillingType(state, projectId, overrideType || "AUTO");
-  const tariffs = getTariffsForProjectType(type);
-
-  const badge = qs("#pricingBadge");
-  const ctx = qs("#pricingContext");
-  if(badge) badge.textContent = projectTypeLabel(type);
-  if(ctx) ctx.textContent = type === "COMMERCIAL"
-    ? "PROJET = Commercial → tarifs commercial appliqués."
-    : "Tarifs standard appliqués.";
-
-  const tbody = qs("#pricingTable");
-  if(tbody){
-    const rows = [
-      tariffs.plan2d_neuf, tariffs.plan2d_reno, tariffs.int3d, tariffs.dossier, tariffs.ext, tariffs.visit, tariffs.forfait
-    ];
-    tbody.innerHTML = rows.map(r=>`
-      <tr>
-        <td>${escapeHtml(r.label)}</td>
-        <td>${escapeHtml(r.unit)}</td>
-        <td class="right"><b>${money(r.price)} DT</b></td>
-      </tr>
-    `).join("");
-  }
-
-  // Inline badges
-  const bPlan = qs("#pricePlan2D");
-  const b3d = qs("#price3D");
-  const bDos = qs("#priceDossier");
-  const bExt = qs("#priceExt");
-  const bSup = qs("#priceSup");
-  if(bPlan) bPlan.textContent = `Neuf: 7 DT/m² • Rénov: 5 DT/m²`;
-  if(b3d) b3d.textContent = `${money(tariffs.int3d.price)} DT/${tariffs.int3d.unit}`;
-  if(bDos) bDos.textContent = `${money(tariffs.dossier.price)} DT/${tariffs.dossier.unit}`;
-  if(bExt) bExt.textContent = `${money(tariffs.ext.price)} DT/${tariffs.ext.unit}`;
-  if(bSup) bSup.textContent = `Visite: 100 DT • Forfait: 400 DT/mois`;
-}
-
-function payMethodLabel(v){
-  if(v==="BANK_TRANSFER") return "Virement bancaire";
-  if(v==="CASH") return "Espèces";
-  return "Virement bancaire ou espèces";
-}
-
-function escapeHtml(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-
-
-
-
-
-
-function pdfEscape(s){
-  return String(s ?? "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("(", "\\(")
-    .replaceAll(")", "\\)");
-}
-
-function buildSimplePdf(lines){
-  // Minimal single-page PDF (A4) with Helvetica. Offline, no external libs.
-  const pageW = 595.28, pageH = 841.89;
-  let y = 800;
-  const fontSize = 11;
-  const leading = 14;
-
-  // Build content stream: text lines
-  let content = "BT\n/F1 " + fontSize + " Tf\n";
-  for(const line of lines){
-    const safe = pdfEscape(line);
-    content += "40 " + y.toFixed(2) + " Td (" + safe + ") Tj\n";
-    content += "0 -" + leading + " Td\n";
-    y -= leading;
-    if(y < 60) break; // avoid overflow
-  }
-  content += "ET\n";
-
-  const enc = (str)=> new TextEncoder().encode(str);
-
-  const objects = [];
-  const addObj = (n, body)=> { objects.push({n, body}); };
-
-  // 1: Catalog
-  addObj(1, "<< /Type /Catalog /Pages 2 0 R >>");
-  // 2: Pages
-  addObj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
-  // 3: Page
-  addObj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`);
-  // 4: Font
-  addObj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-  // 5: Content stream
-  const contentBytes = enc(content);
-  addObj(5, "<< /Length " + contentBytes.length + " >>\nstream\n" + content + "endstream");
-
-  // Build PDF with xref
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for(const obj of objects){
-    offsets.push(pdf.length);
-    pdf += `${obj.n} 0 obj\n${obj.body}\nendobj\n`;
-  }
-
-  const xrefPos = pdf.length;
-  pdf += "xref\n0 " + (objects.length + 1) + "\n";
-  pdf += "0000000000 65535 f \n";
-  for(let i=1;i<offsets.length;i++){
-    pdf += String(offsets[i]).padStart(10,"0") + " 00000 n \n";
-  }
-  pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R >>\n";
-  pdf += "startxref\n" + xrefPos + "\n%%EOF";
-
-  return new Blob([enc(pdf)], {type:"application/pdf"});
-}
-
-function downloadInvoicePDF(state, invNumber){
-  const inv = state.invoices.find(i=>i.number===invNumber);
-  if(!inv) return toast("Facture introuvable");
-
-  const pr = state.projects.find(p=>p.id===inv.projectId);
-  const cl = state.clients.find(c=>c.id===pr?.clientId);
-
-  const lines = [];
-  lines.push("FACTURE");
-  lines.push("Numéro: " + inv.number);
-  lines.push("Date: " + new Date(inv.createdAt).toLocaleDateString("fr-FR"));
-  lines.push("");
-  lines.push("Client: " + (cl?.name || "—"));
-  if(cl?.email) lines.push("Email: " + cl.email);
-  if(cl?.phone) lines.push("Tél: " + cl.phone);
-  lines.push("");
-  lines.push("Projet: " + (pr?.title || "—"));
-  lines.push("Type: " + projectTypeLabel(inv.projectType || pr?.projectType));
-  if(pr?.location) lines.push("Lieu: " + pr.location);
-  lines.push("");
-  lines.push("Détails:");
-  lines.push("------------------------------------------------------------");
-  for(const l of (inv.lines||[])){
-    lines.push(`${l.label} | ${l.qty} ${l.unit} | PU ${money(l.unitPrice)} DT | ${money(l.total)} DT`);
-  }
-  lines.push("------------------------------------------------------------");
-  lines.push("Sous-total: " + money(inv.subtotal) + " DT");
-  lines.push("TVA (" + Math.round(inv.tvaRate*100) + "%): " + money(inv.tax) + " DT");
-  lines.push("TOTAL: " + money(inv.total) + " DT");
-  lines.push("");
-  lines.push("Modalités de paiement:");
-  lines.push(paymentText(inv).replace(/<[^>]*>/g,""));
-  lines.push("");
-  lines.push("Généré par la Plateforme Facturation (Offline HTML).");
-
-  const blob = buildSimplePdf(lines);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${inv.number}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=> URL.revokeObjectURL(url), 2000);
-}
-
-
-
-
-async function loadImageAsJpegBytes(src, maxW){
-  // Load image (png/jpg) and convert to JPEG bytes (Uint8Array) for PDF embedding
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>{
-      const scale = maxW ? Math.min(1, maxW/img.width) : 1;
-      const w = Math.max(1, Math.round(img.width*scale));
-      const h = Math.max(1, Math.round(img.height*scale));
-      const canvas=document.createElement("canvas");
-      canvas.width=w; canvas.height=h;
-      const ctx=canvas.getContext("2d");
-      ctx.fillStyle="#fff";
-      ctx.fillRect(0,0,w,h);
-      ctx.drawImage(img,0,0,w,h);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      const b64 = dataUrl.split(",")[1];
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-      resolve({bytes, w, h});
+  // rating
+  const stars=$("#ratingStars");
+  stars.innerHTML="";
+  for(let i=1;i<=5;i++){
+    const s=document.createElement("span");
+    s.className="star"; s.textContent="★";
+    s.onclick = async ()=>{
+      if(!me) return toast("Connectez-vous.");
+      const rid = `${uid}_${me.uid}`;
+      await setDoc(doc(db,"profileRatings",rid),{ architectUid:uid, userUid:me.uid, value:i, updatedAtMs:Date.now() }, {merge:true});
+      toast("Merci pour votre note");
+      await renderPublicProfile(uid);
     };
-    img.onerror=()=>reject(new Error("Image load failed: "+src));
-    img.src=src;
+    stars.appendChild(s);
+  }
+
+  await renderComments(uid);
+
+  $("#formComment").onsubmit = async (e)=>{
+    e.preventDefault();
+    if(!me) return toast("Connectez-vous.");
+    const text = e.target.text.value.trim();
+    if(!text) return;
+    await addDoc(collection(db,"profileComments"),{
+      architectUid: uid,
+      userUid: me.uid,
+      author: me.fullName || me.email,
+      text,
+      createdAtMs: Date.now()
+    });
+    e.target.reset();
+    toast("Commentaire ajouté");
+    await renderComments(uid);
+  };
+}
+
+async function renderAdmin(){
+  const me = await getMe();
+  if(!me || me.role!=="ADMIN"){ toast("Admin فقط."); return showRoute("home"); }
+
+  const pricing = await loadPricing();
+  const fp=$("#formPricing");
+  Object.keys(pricing).forEach(k=>{ if(fp[k]) fp[k].value = pricing[k]; });
+
+  fp.onsubmit = async (e)=>{
+    e.preventDefault();
+    const next = {
+      plan2d_new:Number(fp.plan2d_new.value), plan2d_renov:Number(fp.plan2d_renov.value),
+      int3d_res:Number(fp.int3d_res.value), int3d_com:Number(fp.int3d_com.value),
+      dossier_res:Number(fp.dossier_res.value), dossier_com:Number(fp.dossier_com.value),
+      ext_res:Number(fp.ext_res.value), ext_facade_com:Number(fp.ext_facade_com.value),
+      visit_single:Number(fp.visit_single.value), visit_monthly:Number(fp.visit_monthly.value),
+      deposit_rate:Number(fp.deposit_rate.value), tva_default:Number(fp.tva_default.value),
+      visit_monthly_included:6,
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(doc(db,"pricing","default"), next, {merge:true});
+    toast("Pricing updated ✅");
+  };
+
+  const tbody=$("#adminRequests");
+  const snap = await getDocs(query(collection(db,"architectRequests"), orderBy("createdAtMs","desc")));
+  tbody.innerHTML="";
+  snap.forEach(d=>{
+    const r=d.data();
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.fullName||"—"}</td>
+      <td>${r.company||"—"}</td>
+      <td><span class="pill">${r.status||"PENDING"}</span></td>
+      <td style="display:flex;gap:8px">
+        <button class="btn" data-approve="${d.id}">Approuver</button>
+        <button class="btn" data-reject="${d.id}">Refuser</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll("[data-approve]").forEach(b=>{
+    b.onclick = async ()=>{
+      const id=b.dataset.approve;
+      const rref=doc(db,"architectRequests",id);
+      const rs=await getDoc(rref);
+      if(!rs.exists()) return;
+      const r=rs.data();
+      await updateDoc(rref,{status:"APPROVED", decidedAtMs:Date.now()});
+      await updateDoc(doc(db,"users", r.uid),{role:"ARCHITECT", updatedAt: serverTimestamp()});
+      toast("Approuvé ✅");
+      await renderAdmin();
+    };
+  });
+  tbody.querySelectorAll("[data-reject]").forEach(b=>{
+    b.onclick = async ()=>{
+      const id=b.dataset.reject;
+      await updateDoc(doc(db,"architectRequests",id),{status:"REJECTED", decidedAtMs:Date.now()});
+      toast("Refusé");
+      await renderAdmin();
+    };
   });
 }
 
-function jpegDims(bytes){
-  // Parse JPEG SOF0/SOF2 for dimensions
-  for(let i=0;i<bytes.length-9;i++){
-    if(bytes[i]===0xFF){
-      const marker = bytes[i+1];
-      if(marker===0xC0 || marker===0xC2){
-        const h = (bytes[i+5]<<8) + bytes[i+6];
-        const w = (bytes[i+7]<<8) + bytes[i+8];
-        return {w,h};
-      }
-      if(marker!==0xD8 && marker!==0xD9 && marker!==0x01 && (marker<0xD0 || marker>0xD7)){
-        const len = (bytes[i+2]<<8) + bytes[i+3];
-        i += 1 + len;
-      }
-    }
-  }
-  return {w:200,h:200};
+async function refreshClientProjectLists(){
+  const me = await getMe();
+  const csnap = await getDocs(query(collection(db,"clients"), where("architectUid","==",me.uid), orderBy("createdAtMs","desc")));
+  const clients=[];
+  csnap.forEach(d=>clients.push({id:d.id, ...d.data()}));
+  $("#clientsCount").textContent = `${clients.length} clients`;
+  $("#projectClient").innerHTML = `<option value="">—</option>` + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join("");
+
+  const psnap = await getDocs(query(collection(db,"projects"), where("architectUid","==",me.uid), orderBy("createdAtMs","desc")));
+  const projects=[];
+  psnap.forEach(d=>projects.push({id:d.id, ...d.data()}));
+  $("#projectsCount").textContent = `${projects.length} projets`;
+  $("#invoiceProject").innerHTML = `<option value="">—</option>` + projects.map(p=>`<option value="${p.id}">${p.title} (${p.projectType})</option>`).join("");
 }
 
-function pdfEsc(s){
-  return String(s ?? "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("(", "\\(")
-    .replaceAll(")", "\\)");
+async function refreshInvoices(){
+  const me = await getMe();
+  const snap = await getDocs(query(collection(db,"invoices"), where("architectUid","==",me.uid), orderBy("createdAtMs","desc"), limit(50)));
+  const tbody=$("#invoiceList");
+  tbody.innerHTML="";
+  snap.forEach(d=>{
+    const inv={id:d.id, ...d.data()};
+    const url=publicInvoiceUrl(inv.id, inv.publicToken);
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${inv.invoiceNo}</td>
+      <td>${new Date(inv.createdAtMs).toLocaleDateString("fr-FR")}</td>
+      <td>${Number(inv.total).toFixed(2)} DT</td>
+      <td><a class="btn" href="${url}" target="_blank">Lien</a></td>
+      <td><button class="btn" data-pdf="${inv.id}">PDF</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll("[data-pdf]").forEach(b=>{
+    b.onclick = async ()=> downloadInvoicePdf(b.dataset.pdf);
+  });
 }
 
-function wrapText(text, maxChars){
-  const words = String(text||"").split(/\s+/).filter(Boolean);
-  const lines=[];
-  let line="";
-  for(const w of words){
-    const test = (line ? (line+" "+w) : w);
-    if(test.length <= maxChars){
-      line = test;
-    } else {
-      if(line) lines.push(line);
-      line = w;
-    }
-  }
-  if(line) lines.push(line);
-  return lines;
+async function downloadInvoicePdf(invId){
+  const invSnap = await getDoc(doc(db,"invoices",invId));
+  if(!invSnap.exists()) return toast("Invoice introuvable");
+  const invoice = {id:invId, ...invSnap.data()};
+
+  const profileSnap = await getDoc(doc(db,"users", invoice.architectUid));
+  const profile = profileSnap.exists()? profileSnap.data() : {fullName:"—", email:"—"};
+
+  const clientSnap = await getDoc(doc(db,"clients", invoice.clientId));
+  const client = clientSnap.exists()? clientSnap.data() : {name:"—"};
+
+  const projSnap = await getDoc(doc(db,"projects", invoice.projectId));
+  const project = projSnap.exists()? projSnap.data() : {title:"—", projectType:"—"};
+
+  const linesSnap = await getDocs(query(collection(db,"invoiceLines"), where("invoiceId","==",invId)));
+  const lines=[]; linesSnap.forEach(d=>lines.push(d.data()));
+
+  const pdf = await createPdf({invoice, lines, profile, client, project});
+  pdf.save(`${invoice.invoiceNo}.pdf`);
 }
 
-function concatBytes(chunks){
-  let total=0;
-  for(const c of chunks) total += c.length;
-  const out=new Uint8Array(total);
-  let off=0;
-  for(const c of chunks){ out.set(c, off); off += c.length; }
-  return out;
-}
-function strBytes(s){ return new TextEncoder().encode(s); }
+async function renderArchitect(){
+  const me = await getMe();
+  if(!me || me.role!=="ARCHITECT"){ toast("Architecte فقط."); return showRoute("home"); }
 
-function buildPdfPro(payload){
-  const W=595.28, H=841.89; // A4 in points
+  await refreshClientProjectLists();
 
-  const objects=[]; // each is Uint8Array
-  const offsets=[0]; // xref offsets, obj 0
-  let pdfChunks=[strBytes("%PDF-1.4\n")];
+  $("#formClientCreate").onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    await addDoc(collection(db,"clients"),{
+      architectUid: me.uid,
+      ownerUid: null,
+      name: fd.get("name"),
+      email: fd.get("email")||"",
+      phone: fd.get("phone")||"",
+      createdAtMs: Date.now()
+    });
+    e.target.reset();
+    toast("Client ajouté ✅");
+    await refreshClientProjectLists();
+  };
 
-  function addObject(bodyBytes){
-    // bodyBytes is Uint8Array (already includes "obj...endobj"? we add wrapper here)
-    objects.push(bodyBytes);
-  }
+  $("#formProjectCreate").onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    await addDoc(collection(db,"projects"),{
+      architectUid: me.uid,
+      clientId: fd.get("clientId"),
+      title: fd.get("title"),
+      projectType: fd.get("projectType"),
+      location: fd.get("location")||"",
+      surfaceM2: Number(fd.get("surfaceM2")||0),
+      facadeMl: Number(fd.get("facadeMl")||0),
+      createdAtMs: Date.now()
+    });
+    e.target.reset();
+    toast("Projet ajouté ✅");
+    await refreshClientProjectLists();
+  };
 
-  // Reserve object numbers
-  const catalogN=1, pagesN=2, pageN=3, fontN=4, logoN=5, qrN=6, contentN=7;
+  $("#formInvoiceCreate").onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    const pricing = await loadPricing();
 
-  // Images objects
-  function imageObject(objN, name, bytes){
-    const dim = jpegDims(bytes);
-    const head = strBytes(`${objN} 0 obj\n<< /Type /XObject /Subtype /Image /Name /${name} /Width ${dim.w} /Height ${dim.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`);
-    const tail = strBytes("\nendstream\nendobj\n");
-    return concatBytes([head, bytes, tail]);
-  }
+    const projectId = String(fd.get("projectId"));
+    const psnap = await getDoc(doc(db,"projects",projectId));
+    if(!psnap.exists()) return toast("Projet introuvable");
+    const project = psnap.data();
 
-  const logoObj = imageObject(logoN, "ImLogo", payload.logoBytes);
-  const qrObj = imageObject(qrN, "ImQR", payload.qrBytes);
+    const { lines, subtotal } = computeLines({
+      pricing,
+      projectType: project.projectType,
+      surfaceM2: project.surfaceM2,
+      facadeMl: project.facadeMl,
+      isNewBuild: String(fd.get("isNewBuild"))==="1",
+      wantPlan2D: fd.get("plan2d")!==null,
+      want3DInt: fd.get("int3d")!==null,
+      wantExt: fd.get("ext")!==null,
+      wantDossier: fd.get("dossier")!==null,
+      visitsMode: String(fd.get("visitsMode")),
+      visitsCount: Number(fd.get("visitsCount")||1)
+    });
 
-  // Content stream construction (PDF operators)
-  let c="";
-  const text=(x,y,str,size=11)=>{ c += `BT /F1 ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEsc(str)}) Tj ET\n`; };
-  const line=(x1,y1,x2,y2,w=1)=>{ c += `${w} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S\n`; };
-  const rectStroke=(x,y,w,h,sw=1)=>{ c += `${sw} w ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S\n`; };
-  const rectFillGray=(x,y,w,h,g)=>{ c += `${g} g ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f 0 g\n`; };
-  const img=(name,x,y,w,h)=>{ c += `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /${name} Do Q\n`; };
+    const tvaRate = Number(fd.get("tvaRate"));
+    const tax = subtotal * tvaRate;
+    const total = subtotal + tax;
+    const deposit = total * Number(pricing.deposit_rate||0.25);
 
-  // Header
-  rectFillGray(0, H-105, W, 105, 0.97);
-  img("ImLogo", 40, H-95, 115, 60);
-  text(170, H-55, "FACTURE", 22);
-  line(40, H-110, W-40, H-110, 1);
+    const invoiceNo = await nextInvoiceNo();
+    const publicToken = Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
 
-  // Meta
-  let metaY = H-55;
-  for(const t of payload.titleLines){
-    text(W-220, metaY, t, 10);
-    metaY -= 14;
-  }
+    const invRef = await addDoc(collection(db,"invoices"),{
+      invoiceNo,
+      architectUid: me.uid,
+      clientId: project.clientId,
+      projectId,
+      projectType: project.projectType,
+      tvaRate,
+      subtotal, tax, total, deposit,
+      publicToken,
+      createdAtMs: Date.now()
+    });
 
-  // Client/Projet boxes
-  const boxY = H-250;
-  const boxW = (W-100)/2;
-  rectStroke(40, boxY, boxW, 110, 1);
-  rectStroke(60+boxW, boxY, boxW, 110, 1);
-  text(50, boxY+92, "Client", 12);
-  text(70+boxW, boxY+92, "Projet", 12);
+    const batch = writeBatch(db);
+    lines.forEach(l=>{
+      const lref = doc(collection(db,"invoiceLines"));
+      batch.set(lref, { invoiceId: invRef.id, architectUid: me.uid, ...l, createdAtMs: Date.now() });
+    });
+    await batch.commit();
 
-  let y1=boxY+72;
-  for(const l of payload.clientLines){ text(50, y1, l, 10); y1-=14; }
-  let y2=boxY+72;
-  for(const l of payload.projectLines){ text(70+boxW, y2, l, 10); y2-=14; }
+    toast("Facture créée ✅");
+    await refreshInvoices();
+  };
 
-  // Table header
-  let tableTop = boxY-25;
-  rectFillGray(40, tableTop, W-80, 24, 0.92);
-  rectStroke(40, tableTop, W-80, 24, 1);
-
-  const cols = [
-    {k:"Désignation", x:46},
-    {k:"Qté", x:330},
-    {k:"Unité", x:382},
-    {k:"PU", x:442},
-    {k:"Total", x:507},
-  ];
-  for(const col of cols) text(col.x, tableTop+8, col.k, 10);
-  line(325, tableTop, 325, tableTop+24);
-  line(375, tableTop, 375, tableTop+24);
-  line(435, tableTop, 435, tableTop+24);
-  line(500, tableTop, 500, tableTop+24);
-
-  // Rows
-  let rowY = tableTop-18;
-  const rowH = 18;
-  const maxRows = 18;
-  const items = payload.items.slice(0, maxRows);
-  for(const it of items){
-    rectStroke(40, rowY-4, W-80, rowH, 0.5);
-    const descLines = wrapText(it.desc, 48);
-    text(46, rowY, (descLines[0]||""), 9);
-    text(330, rowY, it.qty, 9);
-    text(382, rowY, it.unit, 9);
-    text(442, rowY, it.pu, 9);
-    text(507, rowY, it.total, 9);
-    rowY -= rowH;
-  }
-
-  // Totals
-  const totalsY = rowY - 40;
-  rectStroke(W-260, totalsY, 220, 70, 1);
-  let ty = totalsY+50;
-  for(const l of payload.totalsLines){
-    text(W-250, ty, l, 10); ty -= 16;
-  }
-
-  // Payment + QR
-  const payY = totalsY - 120;
-  rectStroke(40, payY, W-80-170, 110, 1);
-  text(50, payY+92, "Modalités de paiement", 12);
-  let py = payY+72;
-  for(const l of payload.paymentLines.slice(0,5)){
-    text(50, py, l, 10); py -= 14;
-  }
-  rectStroke(W-170, payY, 130, 130, 1);
-  img("ImQR", W-165, payY+5, 120, 120);
-  text(W-170, payY-12, "QR (lien)", 9);
-
-  // Footer
-  text(40, 30, payload.footer || "—", 9);
-
-  const contentStr = c;
-  const contentBytes = strBytes(contentStr);
-  const contentObj = concatBytes([
-    strBytes(`${contentN} 0 obj\n<< /Length ${contentBytes.length} >>\nstream\n`),
-    contentBytes,
-    strBytes("\nendstream\nendobj\n")
-  ]);
-
-  // Core objects
-  const catalogObj = strBytes(`${catalogN} 0 obj\n<< /Type /Catalog /Pages ${pagesN} 0 R >>\nendobj\n`);
-  const pagesObj = strBytes(`${pagesN} 0 obj\n<< /Type /Pages /Kids [${pageN} 0 R] /Count 1 >>\nendobj\n`);
-  const pageObj = strBytes(`${pageN} 0 obj\n<< /Type /Page /Parent ${pagesN} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${fontN} 0 R >> /XObject << /ImLogo ${logoN} 0 R /ImQR ${qrN} 0 R >> >> /Contents ${contentN} 0 R >>\nendobj\n`);
-  const fontObj = strBytes(`${fontN} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
-
-  // Add in order 1..7
-  const ordered = [catalogObj, pagesObj, pageObj, fontObj, logoObj, qrObj, contentObj];
-
-  // Assemble with offsets
-  let currentLen = pdfChunks.reduce((a,b)=>a+b.length,0);
-  offsets.push(0); // placeholder for obj0 already
-  const xrefOffsets=[0]; // index 0
-  for(let i=0;i<ordered.length;i++){
-    xrefOffsets.push(currentLen);
-    pdfChunks.push(ordered[i]);
-    currentLen += ordered[i].length;
-  }
-
-  const xrefPos = currentLen;
-  let xref = `xref\n0 ${ordered.length+1}\n0000000000 65535 f \n`;
-  for(let i=1;i<xrefOffsets.length;i++){
-    xref += String(xrefOffsets[i]).padStart(10,"0") + " 00000 n \n";
-  }
-  xref += `trailer\n<< /Size ${ordered.length+1} /Root ${catalogN} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
-  pdfChunks.push(strBytes(xref));
-
-  return new Blob([concatBytes(pdfChunks)], {type:"application/pdf"});
+  await refreshInvoices();
 }
 
-async function downloadInvoicePDF(state, invNumber){
-  const inv = state.invoices.find(i=>i.number===invNumber);
-  if(!inv) return toast("Facture introuvable");
+async function renderClient(){
+  const me = await getMe();
+  if(!me) return toast("Connectez-vous.");
+  const email = (me.email||"").toLowerCase();
 
-  const pr = state.projects.find(p=>p.id===inv.projectId);
-  const cl = state.clients.find(c=>c.id===pr?.clientId);
+  const cSnap = await getDocs(query(collection(db,"clients"), where("email","==",email)));
+  const clientIds=[];
+  cSnap.forEach(d=>clientIds.push(d.id));
 
-  // Build QR data (Lien + données)
-  const link = `client.html#${encodeURIComponent(inv.number)}`;
-  const data = JSON.stringify({number: inv.number, total: inv.total, tva: inv.tvaRate, projectType: inv.projectType || pr?.projectType});
-  const qrText = link + "\n" + data;
+  const tbody=$("#clientInvoiceList");
+  tbody.innerHTML="";
+  if(!clientIds.length){
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Aucune facture liée à votre email.</td></tr>`;
+    return;
+  }
 
-  // Render QR to canvas (offline)
-  if(!window.TinyQR) return toast("QR offline non chargé.");
-  const canv = document.createElement("canvas");
-  TinyQR.renderToCanvas(qrText, canv, 5, 3);
-  const qrDataUrl = canv.toDataURL("image/jpeg", 0.92);
-  const qrB64 = qrDataUrl.split(",")[1];
-  const qrBin = atob(qrB64);
-  const qrBytes = new Uint8Array(qrBin.length);
-  for(let i=0;i<qrBin.length;i++) qrBytes[i]=qrBin.charCodeAt(i);
+  const invSnap = await getDocs(query(collection(db,"invoices"), where("clientId","in", clientIds.slice(0,10)), orderBy("createdAtMs","desc")));
+  invSnap.forEach(d=>{
+    const inv={id:d.id, ...d.data()};
+    const url=publicInvoiceUrl(inv.id, inv.publicToken);
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${inv.invoiceNo}</td><td>${new Date(inv.createdAtMs).toLocaleDateString("fr-FR")}</td><td>${Number(inv.total).toFixed(2)} DT</td><td><a class="btn" href="${url}" target="_blank">Voir</a></td>`;
+    tbody.appendChild(tr);
+  });
+}
 
-  // Logo bytes (local)
-  let logo;
+async function renderPublicInvoice(id, token){
+  const invSnap = await getDoc(doc(db,"invoices",id));
+  if(!invSnap.exists()) return toast("Facture introuvable");
+  const invoice={id, ...invSnap.data()};
+  if(token && token !== invoice.publicToken) return toast("Lien invalide");
+
+  $("#invTitle").textContent = `Facture ${invoice.invoiceNo}`;
+  $("#invMeta").textContent = `Date: ${new Date(invoice.createdAtMs).toLocaleString("fr-FR")} • Type: ${invoice.projectType}`;
+
+  const linesSnap = await getDocs(query(collection(db,"invoiceLines"), where("invoiceId","==",id)));
+  const lines=[]; linesSnap.forEach(d=>lines.push(d.data()));
+
+  const tbody=$("#invLines");
+  tbody.innerHTML="";
+  lines.forEach(l=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${l.label}</td><td>${l.qty}</td><td>${l.unit}</td><td>${Number(l.unitPrice).toFixed(2)}</td><td>${Number(l.total).toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  $("#invTotals").textContent = `TOTAL: ${Number(invoice.total).toFixed(2)} DT`;
+  $("#invDeposit").textContent = `Acompte (25%): ${Number(invoice.deposit).toFixed(2)} DT`;
+
+  $("#btnPdfPublic").onclick = async ()=>{
+    const profileSnap = await getDoc(doc(db,"users", invoice.architectUid));
+    const profile = profileSnap.exists()? profileSnap.data() : {fullName:"—", email:"—"};
+
+    const clientSnap = await getDoc(doc(db,"clients", invoice.clientId));
+    const client = clientSnap.exists()? clientSnap.data() : {name:"—"};
+
+    const projSnap = await getDoc(doc(db,"projects", invoice.projectId));
+    const project = projSnap.exists()? projSnap.data() : {title:"—", projectType:"—"};
+
+    const pdf = await createPdf({invoice, lines, profile, client, project});
+    pdf.save(`${invoice.invoiceNo}.pdf`);
+  };
+}
+
+/* ----------------- EVENTS ----------------- */
+
+$$("[data-route]").forEach(b=>{
+  b.addEventListener("click", ()=>{ location.hash = `#/${b.dataset.route}`; });
+});
+
+$("#btnLogout").addEventListener("click", async ()=>{
+  await signOut(auth);
+  toast("Déconnecté");
+  location.hash="#/home";
+});
+
+$("#btnGoogle").addEventListener("click", async ()=>{
   try{
-    logo = await loadImageAsJpegBytes("assets/logo_small.png", 260);
-  }catch(e){
-    // fallback to full logo
-    logo = await loadImageAsJpegBytes("assets/logo.png", 260);
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  }catch(e){ toast(e.message); }
+});
+
+$("#formLoginEmail").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  try{
+    await signInWithEmailAndPassword(auth, String(fd.get("email")), String(fd.get("password")));
+  }catch(err){ toast(err.message); }
+});
+
+$("#formArchitectRequest").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, String(fd.get("email")), String(fd.get("password")));
+    const user = cred.user;
+    await ensureUserDoc(user);
+    await updateDoc(doc(db,"users",user.uid),{ fullName:String(fd.get("fullName")), company:String(fd.get("company")), updatedAt: serverTimestamp() });
+    await addDoc(collection(db,"architectRequests"),{
+      uid:user.uid, email:user.email, fullName:String(fd.get("fullName")), company:String(fd.get("company")),
+      status:"PENDING", createdAtMs: Date.now()
+    });
+    toast("Demande envoyée ✅");
+    location.hash="#/home";
+  }catch(err){ toast(err.message); }
+});
+
+$("#formMyProfile").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const me = await getMe();
+  if(!me) return toast("Connectez-vous.");
+  const fd=new FormData(e.target);
+
+  let logoUrl = me.logoUrl || "";
+  const file = fd.get("logo");
+  if(file && file.size){
+    const r = ref(storage, `logos/${me.uid}/${Date.now()}_${file.name}`);
+    await uploadBytes(r, file);
+    logoUrl = await getDownloadURL(r);
   }
 
-  const titleLines = [
-    `Numéro: ${inv.number}`,
-    `Date: ${new Date(inv.createdAt).toLocaleDateString("fr-FR")}`,
-    `TVA: ${Math.round(inv.tvaRate*100)}%`,
-  ];
-
-  const clientLines = [
-    cl?.name || "—",
-    cl?.email ? `Email: ${cl.email}` : "",
-    cl?.phone ? `Tél: ${cl.phone}` : "",
-  ].filter(Boolean);
-
-  const projectLines = [
-    pr?.title || "—",
-    `Type: ${projectTypeLabel(inv.projectType || pr?.projectType)}`,
-    pr?.location ? `Lieu: ${pr.location}` : "",
-  ].filter(Boolean);
-
-  const items = (inv.lines||[]).map(l=>({
-    desc: l.label,
-    qty: String(l.qty),
-    unit: l.unit,
-    pu: `${money(l.unitPrice)} DT`,
-    total: `${money(l.total)} DT`,
-  }));
-
-  const totalsLines = [
-    `Sous-total: ${money(inv.subtotal)} DT`,
-    `TVA: ${money(inv.tax)} DT`,
-    `TOTAL: ${money(inv.total)} DT`,
-  ];
-
-  const pay = paymentText(inv).replace(/<[^>]*>/g,"");
-  const paymentLines = wrapText(pay, 70);
-
-  const blob = buildPdfPro({
-    titleLines,
-    clientLines,
-    projectLines,
-    items,
-    totalsLines,
-    paymentLines,
-    logoBytes: logo.bytes,
-    qrBytes,
-    footer: "THE TUNISIAN COUNCIL OF INTERIOR ARCHITECTS — GABES",
+  await updateDoc(doc(db,"users",me.uid),{
+    fullName: String(fd.get("fullName")||""),
+    company: String(fd.get("company")||""),
+    phone: String(fd.get("phone")||""),
+    city: String(fd.get("city")||""),
+    officeAddress: String(fd.get("officeAddress")||""),
+    instagram: String(fd.get("instagram")||""),
+    facebook: String(fd.get("facebook")||""),
+    linkedin: String(fd.get("linkedin")||""),
+    website: String(fd.get("website")||""),
+    logoUrl,
+    updatedAt: serverTimestamp()
   });
+  toast("Profil enregistré ✅");
+  await renderDirectory();
+});
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${inv.number}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+$("#formPortfolio").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const me = await getMe();
+  if(!me || me.role!=="ARCHITECT") return toast("Architecte فقط.");
+  const fd=new FormData(e.target);
+  const files = fd.getAll("images");
+  const urls=[];
+  for(const file of files){
+    if(!file || !file.size) continue;
+    const r = ref(storage, `portfolio/${me.uid}/${Date.now()}_${file.name}`);
+    await uploadBytes(r, file);
+    urls.push(await getDownloadURL(r));
+  }
+  await addDoc(collection(db,"portfolio"),{
+    architectUid: me.uid,
+    title: String(fd.get("title")),
+    category: String(fd.get("category")),
+    description: String(fd.get("description")||""),
+    images: urls,
+    createdAtMs: Date.now()
+  });
+  e.target.reset();
+  toast("Portfolio ajouté ✅");
+  await renderPortfolio(me.uid);
+});
+
+/* ----------------- ROUTER ----------------- */
+
+async function handleRoute(){
+  const {route, params} = parseHash();
+
+  if(route==="invoice"){ showRoute("publicInvoice"); await renderPublicInvoice(params.id, params.t); return; }
+  if(route==="profile"){ showRoute("publicProfile"); await renderPublicProfile(params.id); return; }
+
+  showRoute(route);
+
+  if(route==="directory") await renderDirectory();
+  if(route==="myProfile") await renderMyProfile();
+  if(route==="admin") await renderAdmin();
+  if(route==="architect") await renderArchitect();
+  if(route==="client") await renderClient();
 }
 
+window.addEventListener("hashchange", handleRoute);
 
-
-
-
-App.getCurrentEngineerId = function(){
-  const email = (localStorage.getItem("engineerEmail") || "engineer@example.com").toLowerCase();
-  return email;
-};
-
-App.ensureProfile = function(id){
-  state.profiles = state.profiles || {};
-  if(!state.profiles[id]){
-    state.profiles[id] = {
-      id,
-      fullName: "Architecte d'intérieur",
-      company: "Mon Studio",
-      email: id,
-      phone: "",
-      office: "",
-      city: "Gabès",
-      socials: { instagram:"", facebook:"", linkedin:"", website:"" },
-      logoDataUrl: "",
-      portfolio: [],
-      likes: 0,
-      ratings: [],
-      comments: [],
-    };
-    save('profiles', state.profiles);
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){
+    setSessionInfo("", "");
+    return;
   }
-  return state.profiles[id];
-};
+  const u = await ensureUserDoc(user);
 
-App.profilePublicId = function(){
-  const params = new URLSearchParams(location.search);
-  const id = params.get("id");
-  return id ? id.toLowerCase() : null;
-};
-
-App.calcAvg = function(arr){
-  if(!arr || arr.length===0) return {avg:0,count:0};
-  const sum = arr.reduce((s,r)=>s+Number(r.v||0),0);
-  return {avg: sum/arr.length, count: arr.length};
-};
-
-App.profilePage = function(){
-  const viewingId = App.profilePublicId();
-  const myId = App.getCurrentEngineerId();
-  const id = viewingId || myId;
-
-  const prof = App.ensureProfile(id);
-
-  const role = localStorage.getItem("role");
-  const editCard = qs("#editCard");
-  if(editCard){
-    editCard.style.display = (!viewingId && role==="ENGINEER") ? "block" : "none";
+  const isAdmin = (user.email||"").toLowerCase() === (window.ADMIN_EMAIL||"").toLowerCase();
+  if(isAdmin && u.role!=="ADMIN"){
+    await updateDoc(doc(db,"users",user.uid),{role:"ADMIN", updatedAt: serverTimestamp()});
+    u.role="ADMIN";
   }
 
-  qs("#pName").textContent = prof.fullName || "—";
-  qs("#pCompany").textContent = prof.company || "—";
-  const logo = qs("#pLogo");
-  if(logo){
-    logo.src = prof.logoDataUrl || "assets/logo_small.png";
-  }
+  setSessionInfo(u.role, user.email||"");
+  if(parseHash().route==="login") location.hash="#/home";
+  await handleRoute();
+});
 
-  const contact = [];
-  if(prof.email) contact.push(prof.email);
-  if(prof.phone) contact.push(prof.phone);
-  qs("#pContact").textContent = contact.join(" • ") || "—";
-  qs("#pLocation").textContent = [prof.office, prof.city].filter(Boolean).join(" — ") || "—";
-
-  const soc = [];
-  const addSoc = (label, url)=>{
-    if(!url) return;
-    soc.push(`<a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`);
-  };
-  addSoc("Instagram", prof.socials?.instagram);
-  addSoc("Facebook", prof.socials?.facebook);
-  addSoc("LinkedIn", prof.socials?.linkedin);
-  addSoc("Site", prof.socials?.website);
-  qs("#pSocial").innerHTML = soc.length ? soc.join("") : `<span class="small muted">—</span>`;
-
-  qs("#pLikes").textContent = String(prof.likes||0);
-  const {avg,count} = App.calcAvg(prof.ratings);
-  qs("#pAvg").textContent = avg ? avg.toFixed(1) + "/5" : "—";
-  qs("#pCount").textContent = String(count);
-  qs("#pStars").textContent = avg ? ("★★★★★".slice(0,Math.round(avg)) + "☆☆☆☆☆".slice(0,5-Math.round(avg))) : "☆☆☆☆☆";
-
-  const btnLike = qs("#btnLike");
-  if(btnLike){
-    btnLike.onclick = ()=>{
-      prof.likes = (prof.likes||0) + 1;
-      save('profiles', state.profiles);
-      qs("#pLikes").textContent = String(prof.likes);
-      toast("Merci 👍");
-    };
-  }
-
-  const btnRate = qs("#btnRate");
-  if(btnRate){
-    btnRate.onclick = ()=>{
-      const v = Number(qs("#rateSel").value||5);
-      const name = (qs("#visitorName").value||"").trim();
-      prof.ratings = prof.ratings || [];
-      prof.ratings.push({v, name, at: Date.now()});
-      save('profiles', state.profiles);
-      const res = App.calcAvg(prof.ratings);
-      qs("#pAvg").textContent = res.avg.toFixed(1)+"/5";
-      qs("#pCount").textContent = String(res.count);
-      qs("#pStars").textContent = "★★★★★".slice(0,Math.round(res.avg)) + "☆☆☆☆☆".slice(0,5-Math.round(res.avg));
-      toast("Note envoyée ✅");
-    };
-  }
-
-  function renderComments(){
-    const box = qs("#comments");
-    const list = (prof.comments||[]).slice().reverse();
-    box.innerHTML = list.length ? list.map(c=>`
-      <div class="card" style="margin-top:10px"><div class="bd">
-        <div class="row" style="justify-content:space-between;align-items:center">
-          <div style="font-weight:800">${escapeHtml(c.name||"Anonyme")}</div>
-          <div class="small muted">${new Date(c.at).toLocaleString("fr-FR")}</div>
-        </div>
-        <div style="margin-top:6px">${escapeHtml(c.text)}</div>
-      </div></div>
-    `).join("") : `<div class="small muted">Aucun commentaire.</div>`;
-  }
-  renderComments();
-
-  const btnComment = qs("#btnComment");
-  if(btnComment){
-    btnComment.onclick = ()=>{
-      const text = (qs("#cText").value||"").trim();
-      if(!text) return toast("Écrire un commentaire.");
-      const name = (qs("#cName").value||"").trim();
-      prof.comments = prof.comments || [];
-      prof.comments.push({text, name, at: Date.now()});
-      save('profiles', state.profiles);
-      qs("#cText").value="";
-      qs("#cName").value="";
-      renderComments();
-      toast("Publié ✅");
-    };
-  }
-
-  function renderPortfolio(){
-    const box = qs("#portfolio");
-    const items = (prof.portfolio||[]).slice().reverse();
-    box.innerHTML = items.length ? items.map(it=>{
-      const img = (it.images && it.images[0]) ? it.images[0] : "";
-      return `
-        <div class="pfcard">
-          ${img ? `<img class="pfimg" src="${img}" alt="">` : `<div class="pfimg"></div>`}
-          <div class="pfbd">
-            <div class="pftitle">${escapeHtml(it.title)}</div>
-            <div class="small muted pfmeta">${escapeHtml(it.cat||"")} • ${new Date(it.at).toLocaleDateString("fr-FR")}</div>
-            <div style="margin-top:6px">${escapeHtml(it.desc||"")}</div>
-            <div class="pfactions">
-              ${viewingId ? "" : `<button class="btn" data-del="${escapeHtml(it.id)}" type="button">Supprimer</button>`}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("") : `<div class="small muted">Aucune réalisation pour le moment.</div>`;
-
-    if(!viewingId){
-      box.querySelectorAll("[data-del]").forEach(b=>{
-        b.addEventListener("click", ()=>{
-          const pid = b.getAttribute("data-del");
-          prof.portfolio = (prof.portfolio||[]).filter(x=>x.id!==pid);
-          save('profiles', state.profiles);
-          renderPortfolio();
-          toast("Supprimé");
-        });
-      });
-    }
-  }
-  renderPortfolio();
-
-  if(!viewingId && role==="ENGINEER"){
-    const f = qs("#profileForm");
-    if(f){
-      f.fullName.value = prof.fullName||"";
-      f.company.value = prof.company||"";
-      f.email.value = prof.email||"";
-      f.phone.value = prof.phone||"";
-      f.office.value = prof.office||"";
-      f.city.value = prof.city||"";
-      f.instagram.value = prof.socials?.instagram||"";
-      f.facebook.value = prof.socials?.facebook||"";
-      f.linkedin.value = prof.socials?.linkedin||"";
-      f.website.value = prof.socials?.website||"";
-
-      qs("#btnCancel").onclick = ()=> location.reload();
-
-      f.addEventListener("submit", (e)=>{
-        e.preventDefault();
-        prof.fullName = f.fullName.value.trim();
-        prof.company = f.company.value.trim();
-        prof.email = f.email.value.trim();
-        prof.phone = f.phone.value.trim();
-        prof.office = f.office.value.trim();
-        prof.city = f.city.value.trim();
-        prof.socials = {
-          instagram: f.instagram.value.trim(),
-          facebook: f.facebook.value.trim(),
-          linkedin: f.linkedin.value.trim(),
-          website: f.website.value.trim(),
-        };
-
-        const newId = (prof.email||myId).toLowerCase();
-        if(newId !== id){
-          state.profiles[newId] = {...prof, id:newId};
-          delete state.profiles[id];
-          save('profiles', state.profiles);
-          localStorage.setItem("engineerEmail", newId);
-          location.href = "profile.html";
-          return;
-        }
-        save('profiles', state.profiles);
-        toast("Profil enregistré ✅");
-        location.reload();
-      });
-
-      const logoFile = qs("#logoFile");
-      if(logoFile){
-        logoFile.onchange = ()=>{
-          const file = logoFile.files && logoFile.files[0];
-          if(!file) return;
-          const reader = new FileReader();
-          reader.onload = ()=>{
-            prof.logoDataUrl = String(reader.result);
-            save('profiles', state.profiles);
-            toast("Logo mis à jour ✅");
-            location.reload();
-          };
-          reader.readAsDataURL(file);
-        };
-      }
-    }
-
-    const pf = qs("#pfForm");
-    if(pf){
-      pf.addEventListener("submit", (e)=>{
-        e.preventDefault();
-        const title = pf.title.value.trim();
-        if(!title) return toast("Titre requis");
-        const cat = pf.cat.value;
-        const desc = pf.desc.value.trim();
-        const files = qs("#pfFiles").files;
-
-        const readFile = (file)=> new Promise((res)=>{
-          const r=new FileReader();
-          r.onload=()=>res(String(r.result));
-          r.readAsDataURL(file);
-        });
-
-        (async ()=>{
-          const imgs=[];
-          if(files && files.length){
-            const max = Math.min(3, files.length);
-            for(let i=0;i<max;i++) imgs.push(await readFile(files[i]));
-          }
-          prof.portfolio = prof.portfolio || [];
-          const idd = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random());
-          prof.portfolio.push({ id: idd, title, cat, desc, images: imgs, at: Date.now() });
-          save('profiles', state.profiles);
-          toast("Ajouté ✅");
-          location.reload();
-        })();
-      });
-    }
-  }
-};
-
-
-document.addEventListener("DOMContentLoaded", route);
-
-
-function getEffectiveBillingType(state, projectId, override){
-  const pr = state.projects.find(p=>p.id===projectId);
-  const base = pr?.projectType || 'RESIDENTIEL';
-  if(!override || override==='AUTO') return base;
-  return override;
-}
-
-
-const App = {};
+(async ()=>{
+  if(!location.hash) location.hash="#/home";
+  await handleRoute();
+})();

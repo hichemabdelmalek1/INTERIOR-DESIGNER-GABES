@@ -3,70 +3,409 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Plateforme Facturation — Prototype HTML</title>
+  <title>Plateforme Facturation</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
-<body data-page="home">
+<body>
   <div class="topbar">
-    <div class="row">
-      <div class="brand">
-        <div class="logo">IF</div>
-        <div class="title">
-          <div class="k">Prototype</div>
-          <div class="t">Plateforme Facturation</div>
-        </div>
-      </div>
-      <div class="nav">
-        <a class="btn" href="login.html">Connexion</a>
-        <a class="btn" href="profile.html">Profil</a>
-        <a class="btn" href="admin.html">Admin</a>
-        <a class="btn" href="engineer.html">Architecte d'intérieur</a>
-        <a class="btn" href="client.html">Client</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="container">
-    <div class="grid two">
-      <div class="card">
-        <div class="hd">
-          <h2>هذا تحويل إلى HTML (Prototype)</h2>
-          <p>واجهة ثابتة تعمل بـ LocalStorage. لا يوجد Google Login ولا قاعدة بيانات ولا PDF.</p>
-        </div>
-        <div class="bd">
-          <div class="row">
-            <button class="btn primary" id="goAdmin">فتح Admin</button>
-            <button class="btn" id="goEngineer">فتح Architecte d'intérieur</button>
-            <button class="btn" id="goClient">فتح Client</button>
-          </div>
-          <div class="hr"></div>
-          <div class="small muted">
-            ✅ فيها: Clients/Projets/Factures + حساب التسعيرة + TVA + supervision + QR (باستعمال مكتبة من CDN).<br/>
-            ❌ ما فيهاش: Authentication حقيقي، API، tokens، توليد PDF.
+    <div class="container">
+      <div class="row">
+        <div class="brand">
+          <span class="badge">CIA • GABES</span>
+          <div>
+            <div style="font-weight:900">Plateforme Facturation</div>
+            <small id="sessionInfo" class="muted">Non connecté</small>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="hd">
-          <h2>كيف تستعملها بسرعة</h2>
-          <p>1) Admin: أضف Client + Projet وعيّن engineer@example.com</p>
-        </div>
-        <div class="bd">
-          <ol class="small muted" style="margin:0;padding-left:18px">
-            <li>ادخل Admin → أضف Client</li>
-            <li>ادخل Admin → أضف Projet واربطه بـ engineer@example.com</li>
-            <li>ادخل Architecte d'intérieur → أنشئ Facture</li>
-            <li>ادخل Client → افتح الفاتورة (Hash) وعاين التفاصيل</li>
-          </ol>
-          <div class="hr"></div>
-          <button class="btn ghost" id="resetAll">Reset data (من admin)</button>
+        <div class="nav">
+          <button class="btn" data-route="home">Accueil</button>
+          <button class="btn" data-route="directory">Annuaire</button>
+          <button class="btn" data-route="myProfile">Mon profil</button>
+          <button class="btn primary" id="btnAdmin" data-route="admin">Admin</button>
+          <button class="btn primary" id="btnArchitect" data-route="architect">Architecte</button>
+          <button class="btn primary" id="btnClient" data-route="client">Client</button>
+          <button class="btn" data-route="login">Connexion</button>
+          <button class="btn" id="btnLogout">Déconnexion</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
-  <script src="app.js"></script>
+  <div class="container" id="app">
+    <section id="route-home" class="grid two">
+      <div class="card">
+        <div class="hd">
+          <h1 style="margin:10px 0 0 0">HTML + Firebase (Online)</h1>
+          <p class="muted">Google Login • Admin approval • تسعيرة موحّدة • PDF + QR • Profiles + Portfolio</p>
+        </div>
+        <div class="bd">
+          <div class="grid">
+            <button class="btn primary" data-route="login">Connexion</button>
+            <div class="grid two">
+              <button class="btn" data-route="architectRequest">Demande Architecte</button>
+              <button class="btn" data-route="admin">Admin Panel</button>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <small class="muted">للنشر: Firebase Hosting / Netlify / Vercel static</small>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h2 style="margin:10px 0 0 0">Résumé التسعيرة</h2></div>
+        <div class="bd">
+          <ul style="margin:0;padding-left:18px;color:var(--muted)">
+            <li>TVA: 19% أو 0%</li>
+            <li>Plan 2D: 7 dt/m² (neuf) أو 5 dt/m² (rénov)</li>
+            <li>3D intérieur: 20 dt/m² (Résidentiel) — 30 dt/m² (Commercial)</li>
+            <li>Dossier: 5 dt/m² (Résidentiel) — 10 dt/m² (Commercial)</li>
+            <li>Ext: 10 dt/m² couvert (Résidentiel) — 100 dt/ml façade (Commercial)</li>
+            <li>Visites: 100 dt/visite أو 400 dt/mois (6 visites)</li>
+            <li>Acompte: 25%</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-login" class="hidden grid two">
+      <div class="card">
+        <div class="hd"><h2>Client — Google Login</h2></div>
+        <div class="bd">
+          <button class="btn primary" id="btnGoogle">Se connecter avec Google</button>
+          <p class="muted" style="margin-top:10px">الحريف يدخل بحساب Google.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h2>Architecte / Admin — Email</h2></div>
+        <div class="bd">
+          <form id="formLoginEmail" class="grid">
+            <div class="field"><label>Email</label><input name="email" type="email" required/></div>
+            <div class="field"><label>Mot de passe</label><input name="password" type="password" required/></div>
+            <button class="btn primary" type="submit">Connexion</button>
+          </form>
+          <div class="hr"></div>
+          <button class="btn" data-route="architectRequest">Je suis Architecte — demander l'accès</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-architectRequest" class="hidden">
+      <div class="card">
+        <div class="hd">
+          <h2>Demande d'accès — Architecte d'intérieur</h2>
+          <p class="muted">Email/Password + طلب موافقة Admin</p>
+        </div>
+        <div class="bd">
+          <form id="formArchitectRequest" class="grid two">
+            <div class="field"><label>Nom complet</label><input name="fullName" required/></div>
+            <div class="field"><label>Société</label><input name="company" required/></div>
+            <div class="field"><label>Email</label><input name="email" type="email" required/></div>
+            <div class="field"><label>Mot de passe</label><input name="password" type="password" required/></div>
+            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
+              <button class="btn primary" type="submit">Envoyer</button>
+            </div>
+          </form>
+          <small class="muted">بعد الإرسال: Admin يوافق، وبعدها يظهر لك قسم Architecte.</small>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-admin" class="hidden grid two">
+      <div class="card">
+        <div class="hd"><h2>Demandes Architectes</h2></div>
+        <div class="bd">
+          <table>
+            <thead><tr><th>Nom</th><th>Société</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="adminRequests"></tbody>
+          </table>
+          <small class="muted">Admin = email الموجود في config.js</small>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h2>Pricing موحّد</h2></div>
+        <div class="bd">
+          <form id="formPricing" class="grid two">
+            <div class="field"><label>plan2d_new</label><input name="plan2d_new" type="number" step="0.01"/></div>
+            <div class="field"><label>plan2d_renov</label><input name="plan2d_renov" type="number" step="0.01"/></div>
+            <div class="field"><label>int3d_res</label><input name="int3d_res" type="number" step="0.01"/></div>
+            <div class="field"><label>int3d_com</label><input name="int3d_com" type="number" step="0.01"/></div>
+            <div class="field"><label>dossier_res</label><input name="dossier_res" type="number" step="0.01"/></div>
+            <div class="field"><label>dossier_com</label><input name="dossier_com" type="number" step="0.01"/></div>
+            <div class="field"><label>ext_res</label><input name="ext_res" type="number" step="0.01"/></div>
+            <div class="field"><label>ext_facade_com</label><input name="ext_facade_com" type="number" step="0.01"/></div>
+            <div class="field"><label>visit_single</label><input name="visit_single" type="number" step="0.01"/></div>
+            <div class="field"><label>visit_monthly</label><input name="visit_monthly" type="number" step="0.01"/></div>
+            <div class="field"><label>deposit_rate (0.25)</label><input name="deposit_rate" type="number" step="0.01"/></div>
+            <div class="field"><label>tva_default (0.19)</label><input name="tva_default" type="number" step="0.01"/></div>
+            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
+              <button class="btn primary" type="submit">Enregistrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-architect" class="hidden">
+      <div class="grid two">
+        <div class="card">
+          <div class="hd"><h2>Clients</h2></div>
+          <div class="bd">
+            <form id="formClientCreate" class="grid">
+              <div class="field"><label>Nom</label><input name="name" required/></div>
+              <div class="grid two">
+                <div class="field"><label>Email</label><input name="email" type="email"/></div>
+                <div class="field"><label>Téléphone</label><input name="phone"/></div>
+              </div>
+              <button class="btn primary" type="submit">Ajouter</button>
+            </form>
+            <div class="hr"></div>
+            <small class="muted" id="clientsCount">0 clients</small>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h2>Projets</h2></div>
+          <div class="bd">
+            <form id="formProjectCreate" class="grid">
+              <div class="field"><label>Client</label><select name="clientId" id="projectClient" required></select></div>
+              <div class="field"><label>Titre</label><input name="title" required/></div>
+              <div class="grid two">
+                <div class="field"><label>PROJET (Type)</label>
+                  <select name="projectType" required>
+                    <option value="RESIDENTIEL">Résidentiel (Particuliers)</option>
+                    <option value="TERTIAIRE">Tertiaire (Entreprises)</option>
+                    <option value="COMMERCIAL">Commercial (Retail/CHR)</option>
+                    <option value="PUBLIC_CULTUREL">Public et Culturel</option>
+                    <option value="SCENOGRAPHIE">Scénographie et Éphémère</option>
+                  </select>
+                </div>
+                <div class="field"><label>Lieu</label><input name="location"/></div>
+              </div>
+              <div class="grid two">
+                <div class="field"><label>Surface (m²)</label><input name="surfaceM2" type="number" step="0.01"/></div>
+                <div class="field"><label>Façade (ml) (Commercial)</label><input name="facadeMl" type="number" step="0.01"/></div>
+              </div>
+              <button class="btn primary" type="submit">Ajouter</button>
+            </form>
+            <div class="hr"></div>
+            <small class="muted" id="projectsCount">0 projets</small>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="card">
+        <div class="hd"><h2>Créer une facture</h2></div>
+        <div class="bd">
+          <form id="formInvoiceCreate" class="grid three">
+            <div class="field" style="grid-column:1/-1">
+              <label>Projet</label>
+              <select name="projectId" id="invoiceProject" required></select>
+            </div>
+            <div class="field">
+              <label>TVA</label>
+              <select name="tvaRate">
+                <option value="0.19">19%</option>
+                <option value="0">0%</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Plan 2D: Bâtiment</label>
+              <select name="isNewBuild">
+                <option value="1">Neuf</option>
+                <option value="0">Rénovation</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Visites</label>
+              <select name="visitsMode">
+                <option value="NONE">Aucune</option>
+                <option value="SINGLE">Visites séparées</option>
+                <option value="MONTHLY">Forfait mensuel</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Nombre visites (si séparées)</label>
+              <input name="visitsCount" type="number" value="1"/>
+            </div>
+            <div class="field"><label><input type="checkbox" name="plan2d" checked/> Plan 2D</label></div>
+            <div class="field"><label><input type="checkbox" name="int3d" checked/> 3D Intérieur</label></div>
+            <div class="field"><label><input type="checkbox" name="ext" checked/> Extérieur</label></div>
+            <div class="field"><label><input type="checkbox" name="dossier" checked/> Dossier technique</label></div>
+            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
+              <button class="btn primary" type="submit">Créer</button>
+            </div>
+          </form>
+
+          <div class="hr"></div>
+          <h3 style="margin:0 0 10px 0">Mes factures</h3>
+          <table>
+            <thead><tr><th>Numéro</th><th>Date</th><th>Total</th><th>Lien public</th><th>PDF</th></tr></thead>
+            <tbody id="invoiceList"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-client" class="hidden">
+      <div class="card">
+        <div class="hd"><h2>Mes factures</h2></div>
+        <div class="bd">
+          <table>
+            <thead><tr><th>Numéro</th><th>Date</th><th>Total</th><th>Ouvrir</th></tr></thead>
+            <tbody id="clientInvoiceList"></tbody>
+          </table>
+          <small class="muted">يظهروا الفواتير المرتبطة ببريدك كحريف (clientId = email).</small>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-directory" class="hidden">
+      <div class="card">
+        <div class="hd"><h2>Annuaire — Architectes d'intérieur</h2></div>
+        <div class="bd">
+          <input id="searchDirectory" placeholder="Rechercher… (nom / société / ville)"/>
+          <div class="hr"></div>
+          <div id="directoryGrid" class="grid three"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-myProfile" class="hidden grid two">
+      <div class="card">
+        <div class="hd"><h2>Mon profil</h2></div>
+        <div class="bd">
+          <form id="formMyProfile" class="grid">
+            <div class="field"><label>Nom</label><input name="fullName"/></div>
+            <div class="field"><label>Société</label><input name="company"/></div>
+            <div class="grid two">
+              <div class="field"><label>Téléphone</label><input name="phone"/></div>
+              <div class="field"><label>Ville</label><input name="city"/></div>
+            </div>
+            <div class="field"><label>Adresse bureau</label><input name="officeAddress"/></div>
+            <div class="grid two">
+              <div class="field"><label>Instagram (lien)</label><input name="instagram"/></div>
+              <div class="field"><label>Facebook (lien)</label><input name="facebook"/></div>
+            </div>
+            <div class="grid two">
+              <div class="field"><label>LinkedIn (lien)</label><input name="linkedin"/></div>
+              <div class="field"><label>Website (lien)</label><input name="website"/></div>
+            </div>
+            <div class="field">
+              <label>Logo (upload)</label>
+              <input name="logo" type="file" accept="image/*"/>
+              <small class="muted">سيُحفظ في Firebase Storage</small>
+            </div>
+            <button class="btn primary" type="submit">Enregistrer</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h2>Portfolio</h2></div>
+        <div class="bd">
+          <form id="formPortfolio" class="grid">
+            <div class="field"><label>Titre</label><input name="title" required/></div>
+            <div class="field"><label>Catégorie</label>
+              <select name="category">
+                <option value="RESIDENTIEL">Résidentiel</option>
+                <option value="TERTIAIRE">Tertiaire</option>
+                <option value="COMMERCIAL">Commercial</option>
+                <option value="PUBLIC_CULTUREL">Public & Culturel</option>
+                <option value="SCENOGRAPHIE">Scénographie</option>
+              </select>
+            </div>
+            <div class="field"><label>Description</label><textarea name="description" rows="3"></textarea></div>
+            <div class="field"><label>Images</label><input name="images" type="file" accept="image/*" multiple/></div>
+            <button class="btn primary" type="submit">Ajouter</button>
+          </form>
+          <div class="hr"></div>
+          <div id="portfolioGrid" class="grid two"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-publicProfile" class="hidden">
+      <div class="card">
+        <div class="hd">
+          <h2 id="pubName">Profil</h2>
+          <p class="muted" id="pubCompany"></p>
+          <span class="pill" id="pubCity"></span>
+        </div>
+        <div class="bd">
+          <div class="grid two">
+            <div class="card"><div class="bd">
+              <div class="muted">Contact</div>
+              <div id="pubContact"></div>
+              <div class="hr"></div>
+              <div class="muted">Réseaux</div>
+              <div id="pubLinks" class="grid"></div>
+            </div></div>
+            <div class="card"><div class="bd">
+              <div class="row">
+                <div>
+                  <div class="muted">Avis</div>
+                  <div id="pubRatingAvg" style="font-weight:900;font-size:20px">—</div>
+                </div>
+                <div>
+                  <button class="btn" id="btnLike">❤️ J'aime</button>
+                  <span class="pill" id="likeCount">0</span>
+                </div>
+              </div>
+              <div class="hr"></div>
+              <div class="muted">Votre note</div>
+              <div id="ratingStars"></div>
+            </div></div>
+          </div>
+
+          <div class="hr"></div>
+          <h3 style="margin:0 0 10px 0">Portfolio</h3>
+          <div id="pubPortfolio" class="grid three"></div>
+
+          <div class="hr"></div>
+          <h3 style="margin:0 0 10px 0">Commentaires</h3>
+          <form id="formComment" class="grid">
+            <textarea name="text" rows="3" placeholder="Votre commentaire…" required></textarea>
+            <button class="btn primary" type="submit">Envoyer</button>
+          </form>
+          <div class="hr"></div>
+          <div id="commentsList" class="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="route-publicInvoice" class="hidden">
+      <div class="card">
+        <div class="hd">
+          <h2 id="invTitle">Facture</h2>
+          <p class="muted" id="invMeta"></p>
+        </div>
+        <div class="bd">
+          <table>
+            <thead><tr><th>Désignation</th><th>Qté</th><th>Unité</th><th>PU</th><th>Total</th></tr></thead>
+            <tbody id="invLines"></tbody>
+          </table>
+          <div class="hr"></div>
+          <div id="invTotals" style="font-weight:900;font-size:18px"></div>
+          <div class="muted" id="invDeposit"></div>
+          <div class="hr"></div>
+          <button class="btn primary" id="btnPdfPublic">Télécharger PDF</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 </body>
 </html>
