@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Profil — Architecte d'intérieur</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="topbar">
+    <div class="row">
+      <div class="brand">
+        <div class="logo">IF</div>
+        <div class="title">
+          <div class="k">Profil</div>
+          <div class="t">Architecte d'intérieur</div>
+        </div>
+      </div>
+      <div class="nav">
+        <a class="btn" href="index.html">Accueil</a>
+        <a class="btn" href="login.html">Connexion</a>
+        <a class="btn" href="engineer.html">Factures</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="hd">
+        <h2 id="pName">—</h2>
+        <p class="muted" id="pCompany">—</p>
+      </div>
+      <div class="bd">
+        <div class="grid two">
+          <div class="card"><div class="bd">
+            <div style="display:flex;gap:14px;align-items:center">
+              <img id="pLogo" alt="Logo" style="width:84px;height:84px;object-fit:cover;border-radius:18px;border:1px solid var(--line);background:#fff" />
+              <div>
+                <div class="small muted">Contact</div>
+                <div id="pContact" style="font-weight:800">—</div>
+                <div class="small muted" id="pLocation" style="margin-top:6px">—</div>
+              </div>
+            </div>
+            <div class="hr"></div>
+            <div class="small muted">Réseaux sociaux</div>
+            <div id="pSocial" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
+          </div></div>
+
+          <div class="card"><div class="bd">
+            <div class="row" style="justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="small muted">Évaluation</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+                  <div id="pStars" style="font-size:20px;letter-spacing:2px">—</div>
+                  <div class="small muted"><b id="pAvg">—</b> (<span id="pCount">0</span>)</div>
+                </div>
+              </div>
+              <div>
+                <button class="btn" id="btnLike" type="button">👍 J’aime <span class="badge" id="pLikes">0</span></button>
+              </div>
+            </div>
+            <div class="hr"></div>
+
+            <div class="small muted">Donner une note</div>
+            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+              <select id="rateSel">
+                <option value="5">★★★★★ (5)</option>
+                <option value="4">★★★★☆ (4)</option>
+                <option value="3">★★★☆☆ (3)</option>
+                <option value="2">★★☆☆☆ (2)</option>
+                <option value="1">★☆☆☆☆ (1)</option>
+              </select>
+              <input id="visitorName" placeholder="Votre nom (optionnel)">
+              <button class="btn primary" id="btnRate" type="button">Envoyer</button>
+            </div>
+
+            <div class="hr"></div>
+            <div class="small muted">Commentaires</div>
+            <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+              <input id="cName" placeholder="Votre nom (optionnel)">
+              <input id="cText" placeholder="Votre commentaire..." style="flex:1;min-width:240px">
+              <button class="btn" id="btnComment" type="button">Publier</button>
+            </div>
+            <div id="comments" style="margin-top:12px"></div>
+          </div></div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h3 style="margin:0">Portfolio</h3>
+          <span class="small muted">Réalisations / projets</span>
+        </div>
+        <div id="portfolio" class="grid three" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div class="card" id="editCard" style="margin-top:16px;display:none">
+      <div class="hd">
+        <h2>Modifier mon profil</h2>
+        <p>Visible pour les clients et visiteurs. (Prototype: stocké localement)</p>
+      </div>
+      <div class="bd">
+        <form id="profileForm" class="grid two">
+          <div class="field"><label>Nom complet</label><input name="fullName" required></div>
+          <div class="field"><label>Nom de la société / Studio</label><input name="company" required></div>
+
+          <div class="field"><label>Email</label><input name="email" required></div>
+          <div class="field"><label>Téléphone</label><input name="phone"></div>
+
+          <div class="field"><label>Adresse / Emplacement bureau</label><input name="office"></div>
+          <div class="field"><label>Ville</label><input name="city" placeholder="Gabès..."></div>
+
+          <div class="field"><label>Instagram (lien)</label><input name="instagram" placeholder="https://..."></div>
+          <div class="field"><label>Facebook (lien)</label><input name="facebook" placeholder="https://..."></div>
+
+          <div class="field"><label>LinkedIn (lien)</label><input name="linkedin" placeholder="https://..."></div>
+          <div class="field"><label>Site web (lien)</label><input name="website" placeholder="https://..."></div>
+
+          <div class="field" style="grid-column:1/-1">
+            <label>Logo (image)</label>
+            <input type="file" id="logoFile" accept="image/*">
+            <div class="small muted" style="margin-top:6px">Le logo est enregistré localement (offline). Pour la version finale: stockage cloud sécurisé.</div>
+          </div>
+
+          <div style="grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn" type="button" id="btnCancel">Annuler</button>
+            <button class="btn primary" type="submit">Enregistrer</button>
+          </div>
+        </form>
+
+        <div class="hr"></div>
+        <h3 style="margin:0 0 10px 0">Ajouter au Portfolio</h3>
+        <form id="pfForm" class="grid two">
+          <div class="field"><label>Titre</label><input name="title" required></div>
+          <div class="field"><label>Catégorie</label>
+            <select name="cat">
+              <option value="Résidentiel">Résidentiel</option>
+              <option value="Tertiaire">Tertiaire</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Public & Culturel">Public & Culturel</option>
+              <option value="Scénographie">Scénographie</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><input name="desc" placeholder="Courte description..."></div>
+          <div class="field" style="grid-column:1/-1"><label>Images (1-3)</label><input type="file" id="pfFiles" accept="image/*" multiple></div>
+          <div style="grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn" type="submit">Ajouter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROLE_GUARD -->
+  <script>
+    (function(){
+      const role = localStorage.getItem("role");
+      const params = new URLSearchParams(location.search);
+      const viewing = params.get("id"); // public view by id
+      if(!viewing && role !== "ENGINEER"){
+        location.replace("login.html");
+      }
+    })();
+  </script>
+
+  <script src="qr.js"></script>
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", ()=>{
+      App.profilePage();
+    });
+  </script>
+</body>
+</html>

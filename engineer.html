@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Ingénieur — Prototype HTML</title>
+  <title>Architecte d'intérieur — Prototype HTML</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body data-page="engineer">
@@ -13,7 +13,7 @@
         <div class="logo">IF</div>
         <div class="title">
           <div class="k">Prototype</div>
-          <div class="t">Ingénieur</div>
+          <div class="t">Architecte d'intérieur</div>
         </div>
       </div>
       <div class="nav">
@@ -56,6 +56,19 @@
                 </select>
               </div>
 
+<div class="field">
+  <label>Tarification (selon PROJET)</label>
+  <select name="billingProjectType" id="billingProjectType">
+    <option value="AUTO" selected>Auto (type du projet)</option>
+    <option value="RESIDENTIEL">Résidentiel</option>
+    <option value="TERTIAIRE">Tertiaire</option>
+    <option value="COMMERCIAL">Commercial</option>
+    <option value="PUBLIC_CULTUREL">Public et Culturel</option>
+    <option value="SCENOGRAPHIE">Scénographie et Éphémère</option>
+  </select>
+  <div class="small muted" id="billingInfo" style="margin-top:6px">Auto: يعتمد نوع المشروع اللي عمله Admin.</div>
+</div>
+
               <div class="field">
                 <label>Plan de paiement</label>
                 <select name="paymentPlan">
@@ -70,11 +83,33 @@
                   <option value="BANK_TRANSFER">Virement bancaire</option>
                   <option value="CASH">Espèces</option>
                 </select>
-              </div>
+              <div class="card"><div class="bd">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div>
+      <div style="font-weight:900">Tarifs appliqués (selon PROJET)</div>
+      <div class="small muted" id="pricingContext">—</div>
+    </div>
+    <span class="badge" id="pricingBadge">—</span>
+  </div>
+  <div class="hr"></div>
+  <table>
+    <thead>
+      <tr><th>Service</th><th>Unité</th><th class="right">Prix</th></tr>
+    </thead>
+    <tbody id="pricingTable">
+      <!-- Filled by JS -->
+    </tbody>
+  </table>
+  <div class="small muted" style="margin-top:10px">
+    * Les tarifs sont unifiés. Les tarifs “Commercial” s’appliquent si le PROJET = Commercial (Retail/CHR).
+  </div>
+</div></div>
+
+</div>
             </div>
 
             <div class="card"><div class="bd">
-              <div style="font-weight:800;margin-bottom:8px">Plan aménagé 2D</div>
+              <div style="font-weight:800;margin-bottom:8px">Plan aménagé 2D <span class="badge" id="pricePlan2D">—</span></div>
               <div class="row">
                 <label class="small"><input type="checkbox" name="plan2dEnabled" checked> Activer</label>
                 <select name="plan2dType" class="btn">
@@ -83,14 +118,14 @@
                 </select>
               </div>
               <div class="field" style="margin-top:10px">
-                <label>Surface (m²)</label>
+                <label id="extLabel">Surface couverte (m²)</label>
                 <input type="number" name="plan2dSurface" value="0" min="0" step="0.01">
               </div>
             </div></div>
 
             <div class="grid two">
               <div class="card"><div class="bd">
-                <div style="font-weight:800;margin-bottom:8px">3D intérieur</div>
+                <div style="font-weight:800;margin-bottom:8px">3D intérieur <span class="badge" id="price3D">—</span></div>
                 <label class="small"><input type="checkbox" name="interior3dEnabled" checked> Activer</label>
                 <div class="field" style="margin-top:10px">
                   <label>Surface (m²)</label>
@@ -99,7 +134,7 @@
               </div></div>
 
               <div class="card"><div class="bd">
-                <div style="font-weight:800;margin-bottom:8px">Dossier technique</div>
+                <div style="font-weight:800;margin-bottom:8px">Dossier technique <span class="badge" id="priceDossier">—</span></div>
                 <label class="small"><input type="checkbox" name="dossierEnabled" checked> Activer</label>
                 <div class="field" style="margin-top:10px">
                   <label>Surface (m²)</label>
@@ -108,16 +143,17 @@
               </div></div>
 
               <div class="card"><div class="bd">
-                <div style="font-weight:800;margin-bottom:8px">Extérieur couvert</div>
+                <div style="font-weight:800;margin-bottom:8px">Extérieur / Façade <span class="badge" id="priceExt">—</span></div>
                 <label class="small"><input type="checkbox" name="extEnabled"> Activer</label>
                 <div class="field" style="margin-top:10px">
                   <label>Surface (m²)</label>
                   <input type="number" name="extSurface" value="0" min="0" step="0.01">
                 </div>
+                <div class="small muted" id="extHint" style="margin-top:6px">Résidentiel/Tertiaire/Public/Scéno: 10 DT/m² couvert.</div>
               </div></div>
 
               <div class="card"><div class="bd">
-                <div style="font-weight:800;margin-bottom:8px">Supervision / visites</div>
+                <div style="font-weight:800;margin-bottom:8px">Supervision / visites <span class="badge" id="priceSup">—</span></div>
                 <div class="field">
                   <label>Mode</label>
                   <select name="supervisionMode">
@@ -156,6 +192,7 @@
             </div>
             <div class="right">
               <a class="btn" id="prevLink" href="client.html">Ouvrir côté client</a>
+        <button class="btn primary" id="btnPdf" type="button">Télécharger PDF</button>
             </div>
           </div>
 
@@ -163,7 +200,7 @@
 
           <div class="grid two">
             <div><div class="muted small">Client</div><div style="font-weight:800" id="prevClient">—</div></div>
-            <div><div class="muted small">Projet</div><div style="font-weight:800" id="prevProject">—</div></div>
+            <div><div class="muted small">Projet</div><div style="font-weight:800" id="prevProject">—</div><div class="small muted">Type: <b id="prevType">—</b></div></div>
           </div>
 
           <div class="hr"></div>
@@ -202,7 +239,21 @@
   <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
 
   <!-- QR code library (online) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="qr.js"></script>
   <script src="app.js"></script>
+
+  <!-- ROLE_GUARD -->
+  <script>
+    (function(){
+      const role = localStorage.getItem("role");
+      const need = "ENGINEER";
+      if(!role) { location.replace("login.html"); return; }
+      if(need && role !== need && !(need==="ADMIN" && role==="ADMIN")) {
+        // admin page requires ADMIN; others require matching role
+        location.replace("login.html");
+      }
+    })();
+  </script>
+
 </body>
 </html>

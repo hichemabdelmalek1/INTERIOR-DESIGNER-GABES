@@ -18,7 +18,7 @@
       </div>
       <div class="nav">
         <a class="btn" href="index.html">Accueil</a>
-        <a class="btn" href="engineer.html">Ingénieur</a>
+        <a class="btn" href="engineer.html">Architecte d'intérieur</a>
         <a class="btn" href="client.html">Client</a>
         <button class="btn ghost" id="resetAll">Reset</button>
       </div>
@@ -57,8 +57,20 @@
         <form id="projectForm" class="grid two">
           <div class="field"><label>Titre</label><input name="title" placeholder="Projet villa..." required></div>
           <div class="field"><label>Localisation</label><input name="location" placeholder="Gabès..."></div>
+<div class="field"><label>PROJET</label>
+  <select name="projectType" required>
+    <option value="RESIDENTIEL">Résidentiel (Particuliers)</option>
+    <option value="TERTIAIRE">Tertiaire (Entreprises)</option>
+    <option value="COMMERCIAL">Commercial (Retail/CHR)</option>
+    <option value="PUBLIC_CULTUREL">Public et Culturel</option>
+    <option value="SCENOGRAPHIE">Scénographie et Éphémère</option>
+  </select>
+  <div class="small muted" style="margin-top:6px">
+    Résidentiel : Aménagement/rénovation logements. • Tertiaire : bureaux/coworking. • Commercial : magasins/restaurants/hôtels/cafés. • Public : bibliothèques/musées/écoles. • Scénographie : stands/décors.
+  </div>
+</div>
           <div class="field"><label>Client</label><select id="clientSelect" name="clientId"></select></div>
-          <div class="field"><label>Ingénieur</label>
+          <div class="field"><label>Architecte d'intérieur</label>
             <select id="engineerSelect" name="engineerEmail"></select>
             <div class="small muted" style="margin-top:6px">Par défaut: engineer@example.com (APPROVED).</div>
           </div>
@@ -85,5 +97,19 @@
 
   <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
   <script src="app.js"></script>
+
+  <!-- ROLE_GUARD -->
+  <script>
+    (function(){
+      const role = localStorage.getItem("role");
+      const need = "ADMIN";
+      if(!role) { location.replace("login.html"); return; }
+      if(need && role !== need && !(need==="ADMIN" && role==="ADMIN")) {
+        // admin page requires ADMIN; others require matching role
+        location.replace("login.html");
+      }
+    })();
+  </script>
+
 </body>
 </html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Connexion — Prototype</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="topbar">
+    <div class="row">
+      <div class="brand">
+        <div class="logo">IF</div>
+        <div class="title">
+          <div class="k">Prototype</div>
+          <div class="t">Connexion</div>
+        </div>
+      </div>
+      <div class="nav">
+        <a class="btn" href="index.html">Accueil</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="hd">
+        <h2>Choisir un rôle</h2>
+        <p>Cette version HTML est un prototype: la “connexion” est simulée (LocalStorage). Pour la version finale: Google Login + Admin approval.</p>
+      </div>
+      <div class="bd">
+        <div class="grid two">
+          <div class="card"><div class="bd">
+            <div style="font-weight:900">Admin</div>
+            <div class="small muted">Accès: admin.html</div>
+            <div class="hr"></div>
+            <button class="btn primary" id="loginAdmin">Entrer en Admin</button>
+          </div></div>
+
+          <div class="card"><div class="bd">
+            <div style="font-weight:900">Architecte d'intérieur</div>
+            <div class="small muted">Accès: engineer.html</div>
+            <div class="hr"></div>
+            <button class="btn primary" id="loginEng">Entrer en Architecte</button>
+          </div></div>
+
+          <div class="card"><div class="bd">
+            <div style="font-weight:900">Client</div>
+            <div class="small muted">Accès: client.html</div>
+            <div class="hr"></div>
+            <button class="btn primary" id="loginClient">Entrer en Client</button>
+          </div></div>
+
+          <div class="card"><div class="bd">
+            <div style="font-weight:900">Se déconnecter</div>
+            <div class="small muted">Efface la session locale</div>
+            <div class="hr"></div>
+            <button class="btn ghost" id="logout">Logout</button>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:14px;opacity:0;transition:.25s;font-size:14px"></div>
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", ()=>{
+      document.getElementById("loginAdmin").onclick = ()=> { localStorage.setItem("role","ADMIN"); location.href="admin.html"; };
+      document.getElementById("loginEng").onclick = ()=> { localStorage.setItem("role","ENGINEER"); location.href="engineer.html"; };
+      document.getElementById("loginClient").onclick = ()=> { localStorage.setItem("role","CLIENT"); location.href="client.html"; };
+      document.getElementById("logout").onclick = ()=> { localStorage.removeItem("role"); location.href="index.html"; };
+    });
+  </script>
+</body>
+</html>
