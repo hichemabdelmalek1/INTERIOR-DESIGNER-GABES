@@ -29,31 +29,31 @@ service cloud.firestore {
     }
 
     match /clients/{clientId} {
-      allow create: if isSignedIn() && isArchitect();
+      allow create: if isSignedIn() && (isArchitect() || isAdmin());
       allow read: if isSignedIn() && (isAdmin() || isArchitect() || resource.data.ownerUid == myUid());
       allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
     }
 
     match /projects/{projectId} {
-      allow create: if isSignedIn() && isArchitect();
+      allow create: if isSignedIn() && (isArchitect() || isAdmin());
       allow read: if true;
       allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
     }
 
     match /invoices/{invoiceId} {
-      allow create: if isSignedIn() && isArchitect();
+      allow create: if isSignedIn() && (isArchitect() || isAdmin());
       allow read: if true;
       allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
     }
 
     match /invoiceLines/{lineId} {
-      allow create: if isSignedIn() && isArchitect();
+      allow create: if isSignedIn() && (isArchitect() || isAdmin());
       allow read: if true;
       allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
     }
 
     match /portfolio/{itemId} {
-      allow create: if isSignedIn() && isArchitect();
+      allow create: if isSignedIn() && (isArchitect() || isAdmin());
       allow read: if true;
       allow update, delete: if isSignedIn() && (isAdmin() || (isArchitect() && resource.data.architectUid == myUid()));
     }

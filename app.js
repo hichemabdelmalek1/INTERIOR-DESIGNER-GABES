@@ -83,7 +83,7 @@ async function getMe(){
 function setSessionInfo(role, email){
   $("#sessionInfo").textContent = role ? `Rôle: ${role} • ${email||""}` : "Non connecté";
   $("#btnAdmin").classList.toggle("hidden", role!=="ADMIN");
-  $("#btnArchitect").classList.toggle("hidden", role!=="ARCHITECT");
+  $("#btnArchitect").classList.toggle("hidden", !(role==="ARCHITECT" || role==="ADMIN"));
   $("#btnClient").classList.toggle("hidden", role!=="CLIENT");
 }
 
@@ -526,7 +526,7 @@ async function downloadInvoicePdf(invId){
 
 async function renderArchitect(){
   const me = await getMe();
-  if(!me || me.role!=="ARCHITECT"){ toast("Architecte فقط."); return showRoute("home"); }
+  if(!me || !(me.role==="ARCHITECT" || me.role==="ADMIN")){ toast("Accès Architecte فقط."); return showRoute("home"); }
 
   await refreshClientProjectLists();
 
@@ -763,7 +763,7 @@ $("#formMyProfile").addEventListener("submit", async (e)=>{
 $("#formPortfolio").addEventListener("submit", async (e)=>{
   e.preventDefault();
   const me = await getMe();
-  if(!me || me.role!=="ARCHITECT") return toast("Architecte فقط.");
+  if(!me || !(me.role==="ARCHITECT" || me.role==="ADMIN")) return toast("Accès Architecte فقط.");
   const fd=new FormData(e.target);
   const files = fd.getAll("images");
   const urls=[];
