@@ -11,7 +11,7 @@
     <div class="container">
       <div class="row">
         <div class="brand">
-          <span class="badge">CAPSUD • GABÈS</span>
+          <span class="badge">CIA • Gabès</span>
           <div>
             <div style="font-weight:900">Plateforme Facturation</div>
             <small id="sessionInfo" class="muted">Non connecté</small>
@@ -19,9 +19,6 @@
         </div>
         <div class="nav">
           <button class="btn" data-route="home">Accueil</button>
-          <button class="btn" data-route="directory">Annuaire</button>
-          <button class="btn" data-route="myProfile">Mon profil</button>
-          <button class="btn primary" id="btnAdmin" data-route="admin">Admin</button>
           <button class="btn primary" id="btnArchitect" data-route="architect">Architecte</button>
           <button class="btn primary" id="btnClient" data-route="client">Client</button>
           <button class="btn" data-route="login">Connexion</button>
@@ -35,19 +32,16 @@
     <section id="route-home" class="grid two">
       <div class="card">
         <div class="hd">
-          <h1 style="margin:10px 0 0 0">Plateforme de facturation</h1>
-          <p class="muted">Google Login • Admin approval • تسعيرة موحّدة • PDF + QR • Profiles + Portfolio</p>
+          <h1 style="margin:10px 0 0 0">Facturation (sans Admin)</h1>
+          <p class="muted">Connexion Gmail أو إنشاء حساب • تسعيرة موحدة • PDF + QR</p>
         </div>
         <div class="bd">
           <div class="grid">
-            <button class="btn primary" data-route="login">Connexion (Google)</button>
-            <div class="grid two">
-              <button class="btn" data-route="architectRequest">Demande Architecte</button>
-              <button class="btn" data-route="admin">Admin Panel</button>
-            </div>
+            <button class="btn primary" data-route="login">Connexion</button>
+            <button class="btn" data-route="chooseRole">Choisir le rôle</button>
           </div>
           <div class="hr"></div>
-          <small class="muted">للنشر: Firebase Hosting / Netlify / Vercel static</small>
+          <small class="muted">إذا أول مرة: بعد الدخول اختار Architecte أو Client.</small>
         </div>
       </div>
 
@@ -69,80 +63,39 @@
 
     <section id="route-login" class="hidden grid two">
       <div class="card">
-        <div class="hd"><h2>Client — Google Login</h2></div>
+        <div class="hd"><h2>Connexion avec Google (Gmail)</h2></div>
         <div class="bd">
           <button class="btn primary" id="btnGoogle">Se connecter avec Google</button>
-          <p class="muted" style="margin-top:10px">الحريف يدخل بحساب Google.</p>
+          <p class="muted" style="margin-top:10px">يدخل بالحساب Google مباشرة.</p>
         </div>
       </div>
 
       <div class="card">
-        <div class="hd"><h2>Architecte / Admin — Email</h2></div>
+        <div class="hd"><h2>Créer un compte / Connexion Email</h2></div>
         <div class="bd">
-          <form id="formLoginEmail" class="grid">
+          <form id="formEmailAuth" class="grid">
             <div class="field"><label>Email</label><input name="email" type="email" required/></div>
             <div class="field"><label>Mot de passe</label><input name="password" type="password" required/></div>
-            <button class="btn primary" type="submit">Connexion</button>
+            <div class="grid two">
+              <button class="btn primary" type="submit" name="action" value="login">Connexion</button>
+              <button class="btn" type="submit" name="action" value="signup">Créer</button>
+            </div>
           </form>
           <div class="hr"></div>
-          <button class="btn" data-route="architectRequest">Je suis Architecte — demander l'accès</button>
+          <button class="btn" data-route="chooseRole">Choisir le rôle (après connexion)</button>
         </div>
       </div>
     </section>
 
-    <section id="route-architectRequest" class="hidden">
+    <section id="route-chooseRole" class="hidden">
       <div class="card">
-        <div class="hd">
-          <h2>Demande d'accès — Architecte d'intérieur</h2>
-          <p class="muted">Email/Password + طلب موافقة Admin</p>
-        </div>
+        <div class="hd"><h2>Choisir votre rôle</h2></div>
         <div class="bd">
-          <form id="formArchitectRequest" class="grid two">
-            <div class="field"><label>Nom complet</label><input name="fullName" required/></div>
-            <div class="field"><label>Société</label><input name="company" required/></div>
-            <div class="field"><label>Email</label><input name="email" type="email" required/></div>
-            <div class="field"><label>Mot de passe</label><input name="password" type="password" required/></div>
-            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
-              <button class="btn primary" type="submit">Envoyer</button>
-            </div>
-          </form>
-          <small class="muted">بعد الإرسال: Admin يوافق، وبعدها يظهر لك قسم Architecte.</small>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-admin" class="hidden grid two">
-      <div class="card">
-        <div class="hd"><h2>Demandes Architectes</h2></div>
-        <div class="bd">
-          <table>
-            <thead><tr><th>Nom</th><th>Société</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="adminRequests"></tbody>
-          </table>
-          <small class="muted">Admin = email الموجود في config.js</small>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="hd"><h2>Pricing موحّد</h2></div>
-        <div class="bd">
-          <form id="formPricing" class="grid two">
-            <div class="field"><label>plan2d_new</label><input name="plan2d_new" type="number" step="0.01"/></div>
-            <div class="field"><label>plan2d_renov</label><input name="plan2d_renov" type="number" step="0.01"/></div>
-            <div class="field"><label>int3d_res</label><input name="int3d_res" type="number" step="0.01"/></div>
-            <div class="field"><label>int3d_com</label><input name="int3d_com" type="number" step="0.01"/></div>
-            <div class="field"><label>dossier_res</label><input name="dossier_res" type="number" step="0.01"/></div>
-            <div class="field"><label>dossier_com</label><input name="dossier_com" type="number" step="0.01"/></div>
-            <div class="field"><label>ext_res</label><input name="ext_res" type="number" step="0.01"/></div>
-            <div class="field"><label>ext_facade_com</label><input name="ext_facade_com" type="number" step="0.01"/></div>
-            <div class="field"><label>visit_single</label><input name="visit_single" type="number" step="0.01"/></div>
-            <div class="field"><label>visit_monthly</label><input name="visit_monthly" type="number" step="0.01"/></div>
-            <div class="field"><label>deposit_rate (0.25)</label><input name="deposit_rate" type="number" step="0.01"/></div>
-            <div class="field"><label>tva_default (0.19)</label><input name="tva_default" type="number" step="0.01"/></div>
-            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
-              <button class="btn primary" type="submit">Enregistrer</button>
-            </div>
-          </form>
+          <p class="muted">اختيار الدور يحدد الصلاحيات. يمكن تغييره لاحقاً (بتغيير role في Firestore user).</p>
+          <div class="grid two">
+            <button class="btn primary" id="setArchitect">Je suis Architecte d'intérieur</button>
+            <button class="btn" id="setClient">Je suis Client</button>
+          </div>
         </div>
       </div>
     </section>
@@ -258,121 +211,7 @@
             <thead><tr><th>Numéro</th><th>Date</th><th>Total</th><th>Ouvrir</th></tr></thead>
             <tbody id="clientInvoiceList"></tbody>
           </table>
-          <small class="muted">يظهروا الفواتير المرتبطة ببريدك كحريف (clientId = email).</small>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-directory" class="hidden">
-      <div class="card">
-        <div class="hd"><h2>Annuaire — Architectes d'intérieur</h2></div>
-        <div class="bd">
-          <input id="searchDirectory" placeholder="Rechercher… (nom / société / ville)"/>
-          <div class="hr"></div>
-          <div id="directoryGrid" class="grid three"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-myProfile" class="hidden grid two">
-      <div class="card">
-        <div class="hd"><h2>Mon profil</h2></div>
-        <div class="bd">
-          <form id="formMyProfile" class="grid">
-            <div class="field"><label>Nom</label><input name="fullName"/></div>
-            <div class="field"><label>Société</label><input name="company"/></div>
-            <div class="grid two">
-              <div class="field"><label>Téléphone</label><input name="phone"/></div>
-              <div class="field"><label>Ville</label><input name="city"/></div>
-            </div>
-            <div class="field"><label>Adresse bureau</label><input name="officeAddress"/></div>
-            <div class="grid two">
-              <div class="field"><label>Instagram (lien)</label><input name="instagram"/></div>
-              <div class="field"><label>Facebook (lien)</label><input name="facebook"/></div>
-            </div>
-            <div class="grid two">
-              <div class="field"><label>LinkedIn (lien)</label><input name="linkedin"/></div>
-              <div class="field"><label>Website (lien)</label><input name="website"/></div>
-            </div>
-            <div class="field">
-              <label>Logo (upload)</label>
-              <input name="logo" type="file" accept="image/*"/>
-              <small class="muted">سيُحفظ في Firebase Storage</small>
-            </div>
-            <button class="btn primary" type="submit">Enregistrer</button>
-          </form>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="hd"><h2>Portfolio</h2></div>
-        <div class="bd">
-          <form id="formPortfolio" class="grid">
-            <div class="field"><label>Titre</label><input name="title" required/></div>
-            <div class="field"><label>Catégorie</label>
-              <select name="category">
-                <option value="RESIDENTIEL">Résidentiel</option>
-                <option value="TERTIAIRE">Tertiaire</option>
-                <option value="COMMERCIAL">Commercial</option>
-                <option value="PUBLIC_CULTUREL">Public & Culturel</option>
-                <option value="SCENOGRAPHIE">Scénographie</option>
-              </select>
-            </div>
-            <div class="field"><label>Description</label><textarea name="description" rows="3"></textarea></div>
-            <div class="field"><label>Images</label><input name="images" type="file" accept="image/*" multiple/></div>
-            <button class="btn primary" type="submit">Ajouter</button>
-          </form>
-          <div class="hr"></div>
-          <div id="portfolioGrid" class="grid two"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-publicProfile" class="hidden">
-      <div class="card">
-        <div class="hd">
-          <h2 id="pubName">Profil</h2>
-          <p class="muted" id="pubCompany"></p>
-          <span class="pill" id="pubCity"></span>
-        </div>
-        <div class="bd">
-          <div class="grid two">
-            <div class="card"><div class="bd">
-              <div class="muted">Contact</div>
-              <div id="pubContact"></div>
-              <div class="hr"></div>
-              <div class="muted">Réseaux</div>
-              <div id="pubLinks" class="grid"></div>
-            </div></div>
-            <div class="card"><div class="bd">
-              <div class="row">
-                <div>
-                  <div class="muted">Avis</div>
-                  <div id="pubRatingAvg" style="font-weight:900;font-size:20px">—</div>
-                </div>
-                <div>
-                  <button class="btn" id="btnLike">❤️ J'aime</button>
-                  <span class="pill" id="likeCount">0</span>
-                </div>
-              </div>
-              <div class="hr"></div>
-              <div class="muted">Votre note</div>
-              <div id="ratingStars"></div>
-            </div></div>
-          </div>
-
-          <div class="hr"></div>
-          <h3 style="margin:0 0 10px 0">Portfolio</h3>
-          <div id="pubPortfolio" class="grid three"></div>
-
-          <div class="hr"></div>
-          <h3 style="margin:0 0 10px 0">Commentaires</h3>
-          <form id="formComment" class="grid">
-            <textarea name="text" rows="3" placeholder="Votre commentaire…" required></textarea>
-            <button class="btn primary" type="submit">Envoyer</button>
-          </form>
-          <div class="hr"></div>
-          <div id="commentsList" class="grid"></div>
+          <small class="muted">يظهروا الفواتير المرتبطة ببريدك كحريف (client.email = نفس بريد الدخول).</small>
         </div>
       </div>
     </section>

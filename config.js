@@ -1,10 +1,8 @@
 window.FIREBASE_CONFIG = {
- apiKey: "AIza....",
-  authDomain: "interior-designer-gabes.firebaseapp.com",
-  projectId: "interior-designer-gabes",
-  storageBucket: "interior-designer-gabes.appspot.com",
-  messagingSenderId: "XXXXXXXX",
-  appId: "1:XXXX:web:XXXX"
+  apiKey: "PASTE_HERE",
+  authDomain: "PASTE_HERE",
+  projectId: "PASTE_HERE",
+  storageBucket: "PASTE_HERE",
+  messagingSenderId: "PASTE_HERE",
+  appId: "PASTE_HERE",
 };
-
-window.ADMIN_EMAIL = "hichem.abdelmalek1@gmail.com";
