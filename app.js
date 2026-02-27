@@ -278,47 +278,6 @@ function publicLinkFor(d){
   return `${location.origin}${location.pathname}#/invoice?d=${encodeURIComponent(d)}`;
 }
 
-async function createPdf(data, link){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const a=data.architect, c=data.client, p=data.project, comp=data.computed;
-
-  doc.setFontSize(18); doc.text("FACTURE", 14, 18);
-  doc.setFontSize(11);
-  doc.text(`Numéro: ${data.invoiceNo}`, 14, 28);
-  doc.text(`Date: ${new Date(data.createdAtMs).toLocaleDateString("fr-FR")}`, 14, 35);
-
-  doc.text(`Architecte d'intérieur: ${a.name||"—"}`, 14, 45);
-  doc.text(`Email: ${a.email||"—"}  •  Tél: ${a.phone||"—"}`, 14, 52);
-  doc.text(`Adresse: ${a.address||"—"}`, 14, 59);
-
-  doc.text(`Client: ${c.name||"—"}`, 120, 45);
-  doc.text(`Email: ${c.email||"—"}  •  Tél: ${c.phone||"—"}`, 120, 52);
-  doc.text(`Adresse: ${c.address||"—"}`, 120, 59);
-
-  doc.text(`Projet: ${p.title||"—"}`, 14, 72);
-  doc.text(`Type: ${p.type}`, 14, 79);
-  doc.text(`Surface: ${money(p.m2)} m²`, 120, 79);
-
-  doc.autoTable({
-    startY: 88,
-    head: [["Désignation","Qté","Unité","PU (DT)","Total (DT)"]],
-    body: comp.lines.map(l=>[l.label, money(l.qty), l.unit, money(l.pu), money(l.total)]),
-  });
-
-  const y = doc.lastAutoTable.finalY + 10;
-  doc.text(`Sous-total: ${money(comp.subtotal)} DT`, 120, y);
-  doc.text(`TVA (${Math.round(data.invoice.tvaRate*100)}%): ${money(comp.tax)} DT`, 120, y+7);
-  doc.setFontSize(13); doc.text(`TOTAL: ${money(comp.total)} DT`, 120, y+16);
-  doc.setFontSize(11); doc.text(`Acompte (25%): ${money(comp.deposit)} DT`, 120, y+23);
-
-  const qrDataUrl = await window.QRCode.toDataURL(link);
-  doc.addImage(qrDataUrl, "PNG", 14, y, 30, 30);
-  doc.text("QR: lien facture", 14, y+40);
-
-  return doc;
-}
-
 function invoiceHtml(data, link){
   const a=data.architect, c=data.client, p=data.project, comp=data.computed;
   return `
@@ -413,9 +372,9 @@ async function finish(){
     try{ await navigator.clipboard.writeText(link); toast("Lien copié ✅"); }
     catch{ toast("Copie impossible."); }
   };
-  $("#btnPdf").onclick=async ()=>{
-    const pdf=await createPdf(payload, link);
-    pdf.save(`${payload.invoiceNo}.pdf`);
+  $("#btnPdf").onclick=()=>{
+    toast("PDF: استعمل Imprimer ثم Save as PDF.");
+    window.print();
   };
   $("#btnNew2").onclick=()=>{
     const keepA=state.architect;
@@ -451,9 +410,9 @@ function showPublicFromUrl(){
   $("#pubBody").innerHTML=invoiceHtml(data, link);
 
   $("#btnPubPrint").onclick=()=>window.print();
-  $("#btnPubPdf").onclick=async ()=>{
-    const pdf=await createPdf(data, link);
-    pdf.save(`${data.invoiceNo}.pdf`);
+  $("#btnPubPdf").onclick=()=>{
+    toast("PDF: استعمل Imprimer ثم Save as PDF.");
+    window.print();
   };
 
   return true;
