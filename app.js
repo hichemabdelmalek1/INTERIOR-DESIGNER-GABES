@@ -338,7 +338,7 @@ function invoiceHtml(data, link){
   `;
 }
 
-async function finish(){
+async async function finish(){
   const e3=validateStep(3);
   if(e3){ toast(e3); showStep(3); return; }
   compute();
