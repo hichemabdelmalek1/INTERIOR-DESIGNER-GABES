@@ -11,122 +11,93 @@
     <div class="container">
       <div class="row">
         <div class="brand">
-          <span class="badge">CIA • Gabès</span>
+          <div class="logoBox">PF</div>
           <div>
             <div style="font-weight:900">Plateforme Facturation</div>
-            <small id="sessionInfo" class="muted">Non connecté</small>
+            <small class="muted">Wizard • Facture prête à imprimer / PDF / partage</small>
           </div>
+          <span class="badge">Architecte d’intérieur</span>
         </div>
         <div class="nav">
-          <button class="btn" data-route="home">Accueil</button>
-          <button class="btn primary" id="btnArchitect" data-route="architect">Architecte</button>
-          <button class="btn primary" id="btnClient" data-route="client">Client</button>
-          <button class="btn" data-route="login">Connexion</button>
-          <button class="btn" id="btnLogout">Déconnexion</button>
+          <button class="btn" id="btnNew">Nouvelle facture</button>
+          <button class="btn" id="btnLoad">Charger</button>
+          <button class="btn danger" id="btnReset">Réinitialiser</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="container" id="app">
-    <section id="route-home" class="grid two">
-      <div class="card">
-        <div class="hd">
-          <h1 style="margin:10px 0 0 0">Facturation (sans Admin)</h1>
-          <p class="muted">Connexion Gmail أو إنشاء حساب • تسعيرة موحدة • PDF + QR</p>
-        </div>
-        <div class="bd">
-          <div class="grid">
-            <button class="btn primary" data-route="login">Connexion</button>
-            <button class="btn" data-route="chooseRole">Choisir le rôle</button>
-          </div>
-          <div class="hr"></div>
-          <small class="muted">إذا أول مرة: بعد الدخول اختار Architecte أو Client.</small>
-        </div>
+  <div class="container">
+    <div class="card">
+      <div class="hd">
+        <h1 style="margin:10px 0 0 0">Créer une facture</h1>
+        <div class="steps" id="steps"></div>
       </div>
-
-      <div class="card">
-        <div class="hd"><h2 style="margin:10px 0 0 0">Résumé التسعيرة</h2></div>
-        <div class="bd">
-          <ul style="margin:0;padding-left:18px;color:var(--muted)">
-            <li>TVA: 19% أو 0%</li>
-            <li>Plan 2D: 7 dt/m² (neuf) أو 5 dt/m² (rénov)</li>
-            <li>3D intérieur: 20 dt/m² (Résidentiel) — 30 dt/m² (Commercial)</li>
-            <li>Dossier: 5 dt/m² (Résidentiel) — 10 dt/m² (Commercial)</li>
-            <li>Ext: 10 dt/m² couvert (Résidentiel) — 100 dt/ml façade (Commercial)</li>
-            <li>Visites: 100 dt/visite أو 400 dt/mois (6 visites)</li>
-            <li>Acompte: 25%</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-login" class="hidden grid two">
-      <div class="card">
-        <div class="hd"><h2>Connexion avec Google (Gmail)</h2></div>
-        <div class="bd">
-          <button class="btn primary" id="btnGoogle">Se connecter avec Google</button>
-          <p class="muted" style="margin-top:10px">يدخل بالحساب Google مباشرة.</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="hd"><h2>Créer un compte / Connexion Email</h2></div>
-        <div class="bd">
-          <form id="formEmailAuth" class="grid">
-            <div class="field"><label>Email</label><input name="email" type="email" required/></div>
-            <div class="field"><label>Mot de passe</label><input name="password" type="password" required/></div>
-            <div class="grid two">
-              <button class="btn primary" type="submit" name="action" value="login">Connexion</button>
-              <button class="btn" type="submit" name="action" value="signup">Créer</button>
-            </div>
-          </form>
-          <div class="hr"></div>
-          <button class="btn" data-route="chooseRole">Choisir le rôle (après connexion)</button>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-chooseRole" class="hidden">
-      <div class="card">
-        <div class="hd"><h2>Choisir votre rôle</h2></div>
-        <div class="bd">
-          <p class="muted">اختيار الدور يحدد الصلاحيات. يمكن تغييره لاحقاً (بتغيير role في Firestore user).</p>
+      <div class="bd">
+        <section id="s1">
           <div class="grid two">
-            <button class="btn primary" id="setArchitect">Je suis Architecte d'intérieur</button>
-            <button class="btn" id="setClient">Je suis Client</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="route-architect" class="hidden">
-      <div class="grid two">
-        <div class="card">
-          <div class="hd"><h2>Clients</h2></div>
-          <div class="bd">
-            <form id="formClientCreate" class="grid">
-              <div class="field"><label>Nom</label><input name="name" required/></div>
+            <div>
+              <h2>1) Informations Architecte d’intérieur</h2>
               <div class="grid two">
-                <div class="field"><label>Email</label><input name="email" type="email"/></div>
-                <div class="field"><label>Téléphone</label><input name="phone"/></div>
+                <div class="field"><label>Nom / Société</label><input id="a_name" placeholder="Studio / Agence / Nom" /></div>
+                <div class="field"><label>Téléphone</label><input id="a_phone" placeholder="+216 ..." /></div>
+                <div class="field"><label>Email</label><input id="a_email" type="email" placeholder="contact@..." /></div>
+                <div class="field"><label>Adresse / Bureau</label><input id="a_address" placeholder="Gabès, ..." /></div>
               </div>
-              <button class="btn primary" type="submit">Ajouter</button>
-            </form>
-            <div class="hr"></div>
-            <small class="muted" id="clientsCount">0 clients</small>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="hd"><h2>Projets</h2></div>
-          <div class="bd">
-            <form id="formProjectCreate" class="grid">
-              <div class="field"><label>Client</label><select name="clientId" id="projectClient" required></select></div>
-              <div class="field"><label>Titre</label><input name="title" required/></div>
               <div class="grid two">
-                <div class="field"><label>PROJET (Type)</label>
-                  <select name="projectType" required>
+                <div class="field"><label>Réseaux sociaux</label><input id="a_social" placeholder="Instagram / Facebook / Site" /></div>
+                <div class="field"><label>Logo (image)</label><input id="a_logo" type="file" accept="image/*" /></div>
+              </div>
+              <div class="field"><label>Note (optionnel)</label><textarea id="a_note" placeholder="Message / conditions ..."></textarea></div>
+            </div>
+
+            <div>
+              <h2>Aperçu</h2>
+              <div class="preview" id="preview_arch"></div>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn primary" data-next="2">Continuer</button>
+          </div>
+        </section>
+
+        <section id="s2" class="hidden">
+          <div class="grid two">
+            <div>
+              <h2>2) Informations Client</h2>
+              <div class="grid two">
+                <div class="field"><label>Nom client</label><input id="c_name" /></div>
+                <div class="field"><label>Téléphone</label><input id="c_phone" /></div>
+                <div class="field"><label>Email</label><input id="c_email" type="email" /></div>
+                <div class="field"><label>Adresse</label><input id="c_address" /></div>
+              </div>
+              <div class="field"><label>Remarques client (optionnel)</label><textarea id="c_note"></textarea></div>
+            </div>
+            <div>
+              <h2>Aperçu</h2>
+              <div class="preview" id="preview_client"></div>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn" data-prev="1">Retour</button>
+            <button class="btn primary" data-next="3">Continuer</button>
+          </div>
+        </section>
+
+        <section id="s3" class="hidden">
+          <div class="grid two">
+            <div>
+              <h2>3) Projet</h2>
+              <div class="grid two">
+                <div class="field"><label>Titre du projet</label><input id="p_title" placeholder="Ex: Rénovation appartement S+2" /></div>
+                <div class="field"><label>Lieu</label><input id="p_location" placeholder="Ville / Quartier" /></div>
+              </div>
+              <div class="grid two">
+                <div class="field">
+                  <label>PROJET (Type)</label>
+                  <select id="p_type">
                     <option value="RESIDENTIEL">Résidentiel (Particuliers)</option>
                     <option value="TERTIAIRE">Tertiaire (Entreprises)</option>
                     <option value="COMMERCIAL">Commercial (Retail/CHR)</option>
@@ -134,117 +105,156 @@
                     <option value="SCENOGRAPHIE">Scénographie et Éphémère</option>
                   </select>
                 </div>
-                <div class="field"><label>Lieu</label><input name="location"/></div>
+                <div class="field">
+                  <label>Plan 2D: bâtiment</label>
+                  <select id="p_isNew">
+                    <option value="1">Neuf (depuis الأرض جديدة)</option>
+                    <option value="0">Rénovation / existant</option>
+                  </select>
+                </div>
               </div>
               <div class="grid two">
-                <div class="field"><label>Surface (m²)</label><input name="surfaceM2" type="number" step="0.01"/></div>
-                <div class="field"><label>Façade (ml) (Commercial)</label><input name="facadeMl" type="number" step="0.01"/></div>
+                <div class="field"><label>Surface (m²)</label><input id="p_m2" type="number" step="0.01" value="0" /></div>
+                <div class="field"><label>Façade (ml) (Commercial)</label><input id="p_facade" type="number" step="0.01" value="0" /></div>
               </div>
-              <button class="btn primary" type="submit">Ajouter</button>
-            </form>
-            <div class="hr"></div>
-            <small class="muted" id="projectsCount">0 projets</small>
+            </div>
+            <div>
+              <h2>Aperçu</h2>
+              <div class="preview" id="preview_project"></div>
+            </div>
           </div>
-        </div>
-      </div>
+          <div class="hr"></div>
+          <div class="right">
+            <button class="btn" data-prev="2">Retour</button>
+            <button class="btn primary" data-next="4">Continuer</button>
+          </div>
+        </section>
 
-      <div style="height:14px"></div>
+        <section id="s4" class="hidden">
+          <h2>4) Facture (options)</h2>
+          <div class="grid three">
+            <div class="card" style="box-shadow:none">
+              <div class="bd">
+                <div class="field">
+                  <label>TVA</label>
+                  <select id="i_tva">
+                    <option value="0.19">19%</option>
+                    <option value="0">0%</option>
+                  </select>
+                </div>
 
-      <div class="card">
-        <div class="hd"><h2>Créer une facture</h2></div>
-        <div class="bd">
-          <form id="formInvoiceCreate" class="grid three">
-            <div class="field" style="grid-column:1/-1">
-              <label>Projet</label>
-              <select name="projectId" id="invoiceProject" required></select>
+                <div class="field">
+                  <label>Modules</label>
+                  <div class="grid" style="gap:8px">
+                    <label><input type="checkbox" id="m_plan2d" checked/> Plan aménagé 2D</label>
+                    <label><input type="checkbox" id="m_3dint" checked/> 3D intérieur</label>
+                    <label><input type="checkbox" id="m_ext" checked/> Extérieur</label>
+                    <label><input type="checkbox" id="m_dossier" checked/> Dossier technique</label>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Visites (optionnel)</label>
+                  <select id="i_visitsMode">
+                    <option value="NONE">Aucune</option>
+                    <option value="SINGLE">Visites séparées (100 DT / visite)</option>
+                    <option value="MONTHLY">Forfait mensuel (400 DT / 6 visites)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Nombre visites (si séparées)</label>
+                  <input id="i_visitsCount" type="number" value="1"/>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label>TVA</label>
-              <select name="tvaRate">
-                <option value="0.19">19%</option>
-                <option value="0">0%</option>
-              </select>
+
+            <div class="card" style="grid-column:2/4;box-shadow:none">
+              <div class="bd">
+                <h3 style="margin-top:0">Calcul automatique</h3>
+                <div class="kpi">
+                  <div class="box"><div class="muted">Sous-total</div><div class="val" id="k_sub">0.00 DT</div></div>
+                  <div class="box"><div class="muted">TVA</div><div class="val" id="k_tax">0.00 DT</div></div>
+                  <div class="box"><div class="muted">TOTAL</div><div class="val" id="k_total">0.00 DT</div></div>
+                  <div class="box"><div class="muted">Acompte (25%)</div><div class="val" id="k_dep">0.00 DT</div></div>
+                </div>
+                <div class="hr"></div>
+                <table>
+                  <thead><tr><th>Désignation</th><th>Qté</th><th>Unité</th><th>PU</th><th>Total</th></tr></thead>
+                  <tbody id="lines"></tbody>
+                </table>
+              </div>
             </div>
-            <div class="field">
-              <label>Plan 2D: Bâtiment</label>
-              <select name="isNewBuild">
-                <option value="1">Neuf</option>
-                <option value="0">Rénovation</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Visites</label>
-              <select name="visitsMode">
-                <option value="NONE">Aucune</option>
-                <option value="SINGLE">Visites séparées</option>
-                <option value="MONTHLY">Forfait mensuel</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Nombre visites (si séparées)</label>
-              <input name="visitsCount" type="number" value="1"/>
-            </div>
-            <div class="field"><label><input type="checkbox" name="plan2d" checked/> Plan 2D</label></div>
-            <div class="field"><label><input type="checkbox" name="int3d" checked/> 3D Intérieur</label></div>
-            <div class="field"><label><input type="checkbox" name="ext" checked/> Extérieur</label></div>
-            <div class="field"><label><input type="checkbox" name="dossier" checked/> Dossier technique</label></div>
-            <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
-              <button class="btn primary" type="submit">Créer</button>
-            </div>
-          </form>
+          </div>
 
           <div class="hr"></div>
-          <h3 style="margin:0 0 10px 0">Mes factures</h3>
-          <table>
-            <thead><tr><th>Numéro</th><th>Date</th><th>Total</th><th>Lien public</th><th>PDF</th></tr></thead>
-            <tbody id="invoiceList"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+          <div class="right">
+            <button class="btn" data-prev="3">Retour</button>
+            <button class="btn primary" id="btnFinish">Générer facture finale</button>
+          </div>
+        </section>
 
-    <section id="route-client" class="hidden">
-      <div class="card">
-        <div class="hd"><h2>Mes factures</h2></div>
-        <div class="bd">
-          <table>
-            <thead><tr><th>Numéro</th><th>Date</th><th>Total</th><th>Ouvrir</th></tr></thead>
-            <tbody id="clientInvoiceList"></tbody>
-          </table>
-          <small class="muted">يظهروا الفواتير المرتبطة ببريدك كحريف (client.email = نفس بريد الدخول).</small>
-        </div>
-      </div>
-    </section>
+        <section id="s5" class="hidden">
+          <div class="grid two">
+            <div class="card" style="box-shadow:none">
+              <div class="bd">
+                <h2 style="margin-top:0">Facture finale</h2>
+                <div class="muted" id="final_meta"></div>
+                <div class="hr"></div>
+                <div class="right">
+                  <button class="btn" id="btnPrint">Imprimer</button>
+                  <button class="btn primary" id="btnPdf">Télécharger PDF</button>
+                  <button class="btn" id="btnCopy">Copier lien</button>
+                </div>
+                <div class="hr"></div>
+                <div class="preview" id="final_preview"></div>
+              </div>
+            </div>
 
-    <section id="route-publicInvoice" class="hidden">
-      <div class="card">
-        <div class="hd">
-          <h2 id="invTitle">Facture</h2>
-          <p class="muted" id="invMeta"></p>
-        </div>
-        <div class="bd">
-          <table>
-            <thead><tr><th>Désignation</th><th>Qté</th><th>Unité</th><th>PU</th><th>Total</th></tr></thead>
-            <tbody id="invLines"></tbody>
-          </table>
+            <div class="card" style="box-shadow:none">
+              <div class="bd">
+                <h2 style="margin-top:0">QR Code</h2>
+                <p class="muted">Le QR ouvre le lien public de la facture.</p>
+                <canvas id="qrCanvas" style="width:260px;height:260px"></canvas>
+                <div class="hr"></div>
+                <div class="field">
+                  <label>Lien public</label>
+                  <input id="publicLink" readonly />
+                </div>
+                <small class="muted">⚠️ Le lien contient les données (aucune base de données).</small>
+              </div>
+            </div>
+          </div>
           <div class="hr"></div>
-          <div id="invTotals" style="font-weight:900;font-size:18px"></div>
-          <div class="muted" id="invDeposit"></div>
-          <div class="hr"></div>
-          <button class="btn primary" id="btnPdfPublic">Télécharger PDF</button>
-        </div>
-      </div>
-    </section>
+          <div class="right">
+            <button class="btn" data-prev="4">Retour</button>
+            <button class="btn primary" id="btnNew2">Nouvelle facture</button>
+          </div>
+        </section>
 
+        <section id="publicView" class="hidden">
+          <div class="card">
+            <div class="hd"><h2 id="pubTitle">Facture</h2><p class="muted" id="pubMeta"></p></div>
+            <div class="bd">
+              <div id="pubBody"></div>
+              <div class="hr"></div>
+              <div class="right">
+                <button class="btn" id="btnPubPrint">Imprimer</button>
+                <button class="btn primary" id="btnPubPdf">Télécharger PDF</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js"></script>
-  <script type="module" src="app.js"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+  <script src="app.js"></script>
 </body>
 </html>
